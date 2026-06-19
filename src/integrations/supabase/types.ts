@@ -14,7 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      menu_items: {
+        Row: {
+          category: string
+          description_en: string | null
+          description_th: string | null
+          id: string
+          image_url: string | null
+          name_en: string
+          name_th: string
+          price: number
+          sort_order: number | null
+        }
+        Insert: {
+          category: string
+          description_en?: string | null
+          description_th?: string | null
+          id?: string
+          image_url?: string | null
+          name_en: string
+          name_th: string
+          price: number
+          sort_order?: number | null
+        }
+        Update: {
+          category?: string
+          description_en?: string | null
+          description_th?: string | null
+          id?: string
+          image_url?: string | null
+          name_en?: string
+          name_th?: string
+          price?: number
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      reservations: {
+        Row: {
+          created_at: string
+          customer_name: string
+          id: string
+          phone: string
+          reservation_date: string
+          table_id: string
+          time_slot: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name: string
+          id?: string
+          phone: string
+          reservation_date: string
+          table_id: string
+          time_slot: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string
+          id?: string
+          phone?: string
+          reservation_date?: string
+          table_id?: string
+          time_slot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tables: {
+        Row: {
+          capacity: number
+          created_at: string
+          id: string
+          table_number: number
+          zone: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          id: string
+          table_number: number
+          zone: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          id?: string
+          table_number?: number
+          zone?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
