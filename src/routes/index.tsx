@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Clock, MapPin, Users, Sparkles, X, Search } from "lucide-react";
+import {
+  Calendar as CalendarIcon, Clock, MapPin, Users, Sparkles, X, Search,
+  Phone, Utensils, Crown, Trees, Waves, ChevronDown, Facebook, MessageCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { NavBar } from "@/components/NavBar";
@@ -24,11 +27,22 @@ import {
 } from "@/lib/reservations";
 import { supabase } from "@/integrations/supabase/client";
 
+import heroImg from "@/assets/hero-riverside.jpg";
+import dishSeabass from "@/assets/dish-seabass.jpg";
+import dishTomyum from "@/assets/dish-tomyum.jpg";
+import dishPrawn from "@/assets/dish-prawn.jpg";
+import dishCrab from "@/assets/dish-crab.jpg";
+import dishFriedrice from "@/assets/dish-friedrice.jpg";
+import galleryVip from "@/assets/gallery-vip.jpg";
+import galleryGarden from "@/assets/gallery-garden.jpg";
+import gallerySunset from "@/assets/gallery-sunset.jpg";
+import galleryFood from "@/assets/gallery-food.jpg";
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Riverside Kitchen — Reserve Your Perfect Table" },
-      { name: "description", content: "Live table availability and instant booking at Riverside Kitchen." },
+      { title: "ครัวริมบึง · Riverside Kitchen — Lakeside Fine Dining" },
+      { name: "description", content: "Premium lakeside Thai dining. Live table availability and instant booking at Riverside Kitchen." },
     ],
   }),
   component: HomePage,
@@ -39,44 +53,125 @@ function HomePage() {
     <div className="min-h-screen bg-background">
       <NavBar />
       <Hero />
+      <InfoBar />
       <BookingSection />
-      <FooterStrip />
+      <ZonesSection />
+      <SignatureMenu />
+      <GallerySection />
+      <Footer />
     </div>
   );
 }
 
+/* ============================= HERO ============================= */
+
 function Hero() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   return (
-    <section className="relative overflow-hidden bg-gradient-hero">
-      <div className="absolute inset-0 opacity-[0.04]" style={{
-        backgroundImage: "radial-gradient(circle at 1px 1px, var(--foreground) 1px, transparent 0)",
-        backgroundSize: "32px 32px",
-      }} />
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 pt-16 pb-12 sm:pt-24 sm:pb-20 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-muted-foreground mb-8 shadow-soft">
-          <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse-dot" />
-          <span>{t("live")} · Real-time availability</span>
+    <section className="relative min-h-[88vh] sm:min-h-[92vh] w-full overflow-hidden flex items-center justify-center -mt-16 pt-16">
+      {/* Background */}
+      <img
+        src={heroImg}
+        alt="Riverside Kitchen at sunset"
+        width={1920}
+        height={1080}
+        className="absolute inset-0 h-full w-full object-cover scale-105 animate-fade-in"
+        fetchPriority="high"
+      />
+      {/* Overlays */}
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
+
+      {/* Content */}
+      <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 text-center text-white animate-fade-up">
+        <div className="inline-flex items-center gap-2 rounded-full glass-dark px-5 py-2 text-[10px] sm:text-xs uppercase tracking-[0.25em] mb-8 text-white/90">
+          <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse-dot" />
+          {t("heroEyebrow")}
         </div>
-        <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl text-foreground leading-[1.05] max-w-4xl mx-auto">
-          {t("heroTitle")}
+
+        {/* Logo crest */}
+        <div className="flex items-center justify-center gap-4 mb-6">
+          <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent to-gold/70" />
+          <div className="grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-full bg-gradient-gold text-primary font-display text-2xl sm:text-3xl shadow-gold">
+            ค
+          </div>
+          <div className="h-px w-12 sm:w-20 bg-gradient-to-l from-transparent to-gold/70" />
+        </div>
+
+        <h1 className="font-display text-5xl sm:text-7xl lg:text-8xl leading-[1.02] tracking-tight">
+          {lang === "th" ? (
+            <>
+              <span className="block">ครัวริมบึง</span>
+              <span className="block text-2xl sm:text-3xl lg:text-4xl mt-3 text-gold tracking-[0.3em] font-sans font-light uppercase">Riverside Kitchen</span>
+            </>
+          ) : (
+            <>
+              <span className="block">Riverside Kitchen</span>
+              <span className="block text-2xl sm:text-3xl lg:text-4xl mt-3 text-gold tracking-[0.3em] font-thai font-light">ครัวริมบึง</span>
+            </>
+          )}
         </h1>
-        <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-xl mx-auto">
+
+        <p className="mt-8 text-base sm:text-xl text-white/85 max-w-2xl mx-auto font-light leading-relaxed">
           {t("heroSubtitle")}
         </p>
+
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          <Button size="lg" className="rounded-full px-7 h-12 text-sm shadow-elegant" onClick={() => document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" })}>
+          <Button
+            size="lg"
+            className="rounded-full px-8 h-12 text-sm bg-gradient-gold text-primary hover:opacity-95 hover:scale-[1.03] shadow-gold border-0 transition-all"
+            onClick={() => document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" })}
+          >
             <Sparkles className="mr-2 h-4 w-4" />
             {t("ctaReserve")}
           </Button>
-          <Button asChild size="lg" variant="outline" className="rounded-full px-7 h-12 text-sm bg-card">
+          <Button asChild size="lg" variant="outline" className="rounded-full px-8 h-12 text-sm glass-dark text-white border-white/30 hover:bg-white/10 hover:text-white">
             <a href="/menu">{t("ctaMenu")}</a>
           </Button>
         </div>
       </div>
+
+      <a
+        href="#info"
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 text-white/70 hover:text-gold transition-colors animate-pulse-dot"
+        aria-label="Scroll"
+      >
+        <ChevronDown className="h-6 w-6" />
+      </a>
     </section>
   );
 }
+
+/* ============================= INFO BAR ============================= */
+
+function InfoBar() {
+  const { t } = useLang();
+  const items = [
+    { icon: Clock, label: t("infoHours"), value: t("infoHoursValue") },
+    { icon: Phone, label: t("infoPhone"), value: t("infoPhoneValue") },
+    { icon: Utensils, label: t("infoTables"), value: t("infoTablesValue") },
+    { icon: Users, label: t("infoSeating"), value: t("infoSeatingValue") },
+  ];
+  return (
+    <section id="info" className="relative -mt-16 sm:-mt-20 z-20 mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="glass rounded-3xl shadow-elegant border border-white/60 grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border/50 overflow-hidden">
+        {items.map(({ icon: Icon, label, value }) => (
+          <div key={label} className="p-5 sm:p-6 flex items-center gap-4 hover:bg-white/40 transition-colors">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-gold text-primary shadow-soft">
+              <Icon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
+              <div className="font-display text-base sm:text-lg text-foreground truncate">{value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ============================= BOOKING (logic preserved) ============================= */
 
 function BookingSection() {
   const { t, lang } = useLang();
@@ -97,7 +192,6 @@ function BookingSection() {
     enabled: !!dateKey,
   });
 
-  // Realtime sync
   useEffect(() => {
     if (!dateKey) return;
     const channel = supabase
@@ -130,36 +224,42 @@ function BookingSection() {
   );
 
   const totals = useMemo(() => {
-    const total = tables.length;
+    const total = tables.length || 50;
     const reserved = reservedTableIds.size;
     return {
       total,
       reserved,
       available: total - reserved,
+      bookingsToday: reservations.length,
       occupancy: total ? Math.round((reserved / total) * 100) : 0,
     };
-  }, [tables, reservedTableIds]);
+  }, [tables, reservedTableIds, reservations]);
 
   return (
-    <section id="booking" className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-16 space-y-8">
+    <section id="booking" className="mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-28 space-y-10">
+      <SectionHeader
+        eyebrow={t("live") + " · Real-time"}
+        title={t("ctaReserve")}
+        subtitle={lang === "th" ? "ตรวจสอบโต๊ะว่างและจองทันทีในไม่กี่คลิก" : "Live availability — book your table in just a few clicks."}
+      />
+
       {/* Dashboard */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Stat label={t("dashAvailable")} value={`${totals.available}/${totals.total || 50}`} tone="success" />
-        <Stat label={t("dashReserved")} value={`${totals.reserved}/${totals.total || 50}`} tone="warm" />
-        <Stat label={t("dashOccupancy")} value={`${totals.occupancy}%`} tone="primary" />
-        <Stat label={t("live")} value={dateKey ? format(new Date(dateKey), "MMM d") : "—"} tone="muted" pulse />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+        <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailable")} value={`${totals.available}`} suffix={`/${totals.total}`} tone="gold" />
+        <Stat icon={<Users className="h-4 w-4" />} label={t("dashReserved")} value={`${totals.reserved}`} suffix={`/${totals.total}`} tone="primary" />
+        <Stat icon={<CalendarIcon className="h-4 w-4" />} label={t("dashToday")} value={`${totals.bookingsToday}`} tone="muted" />
+        <Stat icon={<Waves className="h-4 w-4" />} label={t("dashOccupancy")} value={`${totals.occupancy}%`} tone="primary" pulse />
       </div>
 
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h2 className="font-display text-3xl sm:text-4xl">{t("ctaReserve")}</h2>
-        <Button variant="outline" size="sm" onClick={() => setCancelOpen(true)} className="rounded-full">
+      <div className="flex items-center justify-end">
+        <Button variant="outline" size="sm" onClick={() => setCancelOpen(true)} className="rounded-full hover:border-primary">
           <X className="mr-1.5 h-3.5 w-3.5" /> {t("navCancel")}
         </Button>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Step 1 - Date */}
-        <Card className="p-5 shadow-soft border-border/60">
+        <Card className="p-6 shadow-soft border-border/60 hover:shadow-elegant transition-shadow">
           <StepHeader n={1} title={t("step1")} />
           <Popover>
             <PopoverTrigger asChild>
@@ -182,7 +282,7 @@ function BookingSection() {
         </Card>
 
         {/* Step 2 - Time */}
-        <Card className="p-5 shadow-soft border-border/60 lg:col-span-2">
+        <Card className="p-6 shadow-soft border-border/60 lg:col-span-2 hover:shadow-elegant transition-shadow">
           <StepHeader n={2} title={t("step2")} icon={<Clock className="h-3.5 w-3.5" />} />
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {TIME_SLOTS.map((s) => {
@@ -201,7 +301,7 @@ function BookingSection() {
                       ? "bg-primary text-primary-foreground border-primary shadow-elegant scale-[1.02]"
                       : full
                       ? "bg-muted text-muted-foreground border-border"
-                      : "bg-card hover:border-primary/40 hover:shadow-soft hover:-translate-y-0.5",
+                      : "bg-card hover:border-gold hover:shadow-soft hover:-translate-y-0.5",
                   )}
                 >
                   {s}
@@ -218,17 +318,17 @@ function BookingSection() {
       </div>
 
       {/* Step 3 - Table map */}
-      <Card className="p-5 sm:p-6 shadow-soft border-border/60">
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
+      <Card className="p-6 sm:p-8 shadow-soft border-border/60">
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
           <StepHeader n={3} title={t("step3")} icon={<MapPin className="h-3.5 w-3.5" />} />
-          <div className="flex items-center gap-3 flex-wrap text-xs">
+          <div className="flex items-center gap-2 flex-wrap text-xs">
             <Legend color="bg-success/15 border-success/40 text-success" label={t("available")} />
             <Legend color="bg-destructive/10 border-destructive/40 text-destructive" label={t("reserved")} />
             <Legend color="bg-gold/30 border-gold text-gold-foreground" label={t("selected")} />
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-5">
+        <div className="flex flex-wrap gap-2 mb-6">
           <ZoneChip active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
             {lang === "th" ? "ทั้งหมด" : "All"} · {tables.length}
           </ZoneChip>
@@ -252,19 +352,19 @@ function BookingSection() {
                   disabled={reserved}
                   onClick={() => setSelectedTable(tbl)}
                   className={cn(
-                    "group relative rounded-xl border-2 p-2.5 text-left transition-all",
+                    "group relative rounded-xl border-2 p-3 text-left transition-all duration-300",
                     "disabled:cursor-not-allowed",
                     selected
-                      ? "bg-gold/25 border-gold shadow-elegant scale-[1.04]"
+                      ? "bg-gold/25 border-gold shadow-gold scale-[1.06]"
                       : reserved
-                      ? "bg-destructive/8 border-destructive/30 opacity-70"
-                      : "bg-success/8 border-success/30 hover:border-success hover:-translate-y-0.5 hover:shadow-soft",
+                      ? "bg-destructive/10 border-destructive/30 opacity-70"
+                      : "bg-success/8 border-success/30 hover:border-gold hover:bg-gold/10 hover:-translate-y-1 hover:shadow-gold",
                   )}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-display text-lg leading-none">{tbl.id}</span>
                     <span className={cn(
-                      "h-2 w-2 rounded-full",
+                      "h-2 w-2 rounded-full transition-transform group-hover:scale-150",
                       selected ? "bg-gold" : reserved ? "bg-destructive" : "bg-success",
                     )} />
                   </div>
@@ -298,10 +398,245 @@ function BookingSection() {
   );
 }
 
+/* ============================= ZONES ============================= */
+
+function ZonesSection() {
+  const { t } = useLang();
+  const zones = [
+    { icon: Waves, name: t("zoneRiverside"), desc: t("zRiversideDesc"), img: gallerySunset, emoji: "🌊" },
+    { icon: Trees, name: t("zoneAir"), desc: t("zGardenDesc"), img: galleryGarden, emoji: "🏡" },
+    { icon: Crown, name: t("zoneVip"), desc: t("zVipDesc"), img: galleryVip, emoji: "👑" },
+  ];
+  return (
+    <section className="bg-gradient-warm py-20 sm:py-28">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <SectionHeader eyebrow="3 Zones" title={t("zonesTitle")} subtitle={t("zonesSubtitle")} />
+        <div className="grid md:grid-cols-3 gap-6 mt-12">
+          {zones.map((z) => (
+            <div key={z.name} className="group relative overflow-hidden rounded-3xl shadow-soft hover:shadow-elegant transition-all duration-500 hover:-translate-y-1.5">
+              <div className="aspect-[4/5] overflow-hidden">
+                <img
+                  src={z.img}
+                  alt={z.name}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-7 text-white">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-3xl">{z.emoji}</span>
+                  <z.icon className="h-5 w-5 text-gold" />
+                </div>
+                <h3 className="font-display text-3xl mb-2">{z.name}</h3>
+                <p className="text-sm text-white/85">{z.desc}</p>
+                <div className="mt-4 h-px w-12 bg-gold transition-all duration-500 group-hover:w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================= SIGNATURE MENU ============================= */
+
+function SignatureMenu() {
+  const { t, lang } = useLang();
+  const dishes = [
+    { img: dishSeabass, name_en: "Crispy Sea Bass with Fish Sauce", name_th: "ปลากะพงทอดน้ำปลา", price: 420 },
+    { img: dishTomyum, name_en: "Tom Yum River Prawn", name_th: "ต้มยำกุ้งแม่น้ำ", price: 350 },
+    { img: dishPrawn, name_en: "Grilled River Prawn", name_th: "กุ้งเผา", price: 580 },
+    { img: dishCrab, name_en: "Crab in Yellow Curry Powder", name_th: "ปูผัดผงกะหรี่", price: 650 },
+    { img: dishFriedrice, name_en: "Crab Fried Rice", name_th: "ข้าวผัดปู", price: 180 },
+  ];
+
+  return (
+    <section className="mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-28">
+      <SectionHeader eyebrow="Chef's Selection" title={t("signatureTitle")} subtitle={t("signatureSubtitle")} />
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
+        {dishes.map((d, i) => (
+          <Card
+            key={d.name_en}
+            className={cn(
+              "group overflow-hidden border-border/60 shadow-soft hover:shadow-elegant transition-all duration-500 hover:-translate-y-1 bg-card",
+              i === 0 && "lg:col-span-2 lg:row-span-1",
+            )}
+          >
+            <div className={cn("relative overflow-hidden", i === 0 ? "aspect-[16/9]" : "aspect-[4/3]")}>
+              <img
+                src={d.img}
+                alt={lang === "th" ? d.name_th : d.name_en}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+              <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-gold text-primary font-display text-sm shadow-soft">
+                ฿{d.price}
+              </div>
+            </div>
+            <div className="p-5">
+              <h3 className="font-display text-xl sm:text-2xl leading-tight">
+                {lang === "th" ? d.name_th : d.name_en}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1 font-thai">
+                {lang === "th" ? d.name_en : d.name_th}
+              </p>
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Signature</span>
+                <button
+                  onClick={() => document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" })}
+                  className="text-xs font-medium text-primary hover:text-gold transition-colors inline-flex items-center gap-1 group/btn"
+                >
+                  {t("viewDetails")}
+                  <span className="transition-transform group-hover/btn:translate-x-1">→</span>
+                </button>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ============================= GALLERY ============================= */
+
+function GallerySection() {
+  const { t } = useLang();
+  const images = [
+    { src: gallerySunset, alt: "Sunset over the river", h: "row-span-2" },
+    { src: galleryGarden, alt: "Garden seating", h: "" },
+    { src: galleryFood, alt: "Thai dishes", h: "" },
+    { src: galleryVip, alt: "VIP private dining", h: "row-span-2" },
+    { src: heroImg, alt: "Riverside terrace", h: "" },
+  ];
+  return (
+    <section className="bg-gradient-warm py-20 sm:py-28">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <SectionHeader eyebrow="Gallery" title={t("galleryTitle")} subtitle={t("gallerySubtitle")} />
+        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 grid-rows-2 gap-3 sm:gap-4 auto-rows-[180px] sm:auto-rows-[220px]">
+          {images.map((img, i) => (
+            <div
+              key={i}
+              className={cn(
+                "group relative overflow-hidden rounded-2xl shadow-soft hover:shadow-elegant transition-all duration-500",
+                img.h,
+                i === 0 && "col-span-2",
+                i === 3 && "md:col-span-1",
+              )}
+            >
+              <img
+                src={img.src}
+                alt={img.alt}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute bottom-4 left-4 text-white text-sm font-display opacity-0 group-hover:opacity-100 transition-opacity">
+                {img.alt}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================= FOOTER ============================= */
+
+function Footer() {
+  const { t, lang } = useLang();
+  return (
+    <footer className="bg-primary text-primary-foreground">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-16">
+        <div className="grid md:grid-cols-3 gap-10">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="grid h-12 w-12 place-items-center rounded-full bg-gradient-gold text-primary font-display text-xl shadow-gold">
+                ค
+              </div>
+              <div>
+                <div className="font-display text-2xl">{t("brand")}</div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-primary-foreground/60">{t("tagline")}</div>
+              </div>
+            </div>
+            <p className="text-sm text-primary-foreground/70 leading-relaxed max-w-xs">
+              {lang === "th"
+                ? "ร้านอาหารไทยริมบึง บรรยากาศโรแมนติก พร้อมเสิร์ฟอาหารรสเลิศจากวัตถุดิบสดใหม่"
+                : "Lakeside Thai dining with a romantic ambience and exquisite dishes from the freshest ingredients."}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-display text-lg mb-4 text-gold">{t("footerVisit")}</h4>
+            <ul className="space-y-2.5 text-sm text-primary-foreground/80">
+              <li className="flex items-start gap-2">
+                <Clock className="h-4 w-4 mt-0.5 text-gold shrink-0" />
+                <span>{t("infoHoursValue")}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Phone className="h-4 w-4 mt-0.5 text-gold shrink-0" />
+                <span>{t("infoPhoneValue")}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 mt-0.5 text-gold shrink-0" />
+                <span>{lang === "th" ? "ริมบึงพระราม 9 กรุงเทพฯ" : "Rama 9 Lakeside, Bangkok"}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-display text-lg mb-4 text-gold">{t("footerConnect")}</h4>
+            <div className="flex flex-wrap gap-3">
+              <a href="#" className="inline-flex items-center gap-2 rounded-full glass-dark px-4 py-2 text-sm hover:bg-gold hover:text-primary transition-colors border-white/10">
+                <Facebook className="h-4 w-4" /> Facebook
+              </a>
+              <a href="#" className="inline-flex items-center gap-2 rounded-full glass-dark px-4 py-2 text-sm hover:bg-gold hover:text-primary transition-colors border-white/10">
+                <MessageCircle className="h-4 w-4" /> LINE OA
+              </a>
+            </div>
+            <Button
+              onClick={() => document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" })}
+              className="mt-6 rounded-full bg-gradient-gold text-primary hover:opacity-90 hover:scale-[1.02] border-0 shadow-gold transition-all"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {t("bookNow")}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-12 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-primary-foreground/60">
+          <div>© {new Date().getFullYear()} {t("brand")} · {t("footerRights")}</div>
+          <div>Crafted with care · Bangkok</div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/* ============================= SHARED ============================= */
+
+function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
+  return (
+    <div className="text-center max-w-2xl mx-auto">
+      <div className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-gold mb-4 font-medium">
+        <span className="h-px w-8 bg-gold" />
+        {eyebrow}
+        <span className="h-px w-8 bg-gold" />
+      </div>
+      <h2 className="font-display text-4xl sm:text-5xl text-foreground leading-tight">{title}</h2>
+      <p className="mt-3 text-muted-foreground">{subtitle}</p>
+    </div>
+  );
+}
+
 function StepHeader({ n, title, icon }: { n: number; title: string; icon?: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2.5 mb-4">
-      <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">{n}</span>
+    <div className="flex items-center gap-3 mb-5">
+      <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-gold text-primary text-xs font-semibold shadow-soft">{n}</span>
       <h3 className="font-display text-xl flex items-center gap-1.5">
         {title}
         {icon && <span className="text-muted-foreground">{icon}</span>}
@@ -310,18 +645,30 @@ function StepHeader({ n, title, icon }: { n: number; title: string; icon?: React
   );
 }
 
-function Stat({ label, value, tone, pulse }: { label: string; value: string; tone: "success" | "warm" | "primary" | "muted"; pulse?: boolean }) {
-  const toneCls = {
-    success: "from-success/15 to-success/5 text-success",
-    warm: "from-destructive/10 to-destructive/0 text-destructive",
-    primary: "from-primary/12 to-primary/0 text-primary",
-    muted: "from-muted to-muted/30 text-foreground",
+function Stat({
+  label, value, suffix, tone, pulse, icon,
+}: {
+  label: string; value: string; suffix?: string;
+  tone: "gold" | "primary" | "muted"; pulse?: boolean; icon?: React.ReactNode;
+}) {
+  const ring = {
+    gold: "bg-gradient-gold text-primary",
+    primary: "bg-primary text-primary-foreground",
+    muted: "bg-muted text-foreground",
   }[tone];
   return (
-    <Card className={cn("relative overflow-hidden p-5 border-border/60 shadow-soft bg-gradient-to-br", toneCls)}>
+    <Card className="relative overflow-hidden p-5 border-border/60 shadow-soft bg-card hover:shadow-elegant hover:-translate-y-0.5 transition-all duration-300">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className={cn("grid h-9 w-9 place-items-center rounded-xl shadow-soft", ring)}>
+          {icon}
+        </div>
+        {pulse && <span className="h-2 w-2 rounded-full bg-success animate-pulse-dot" />}
+      </div>
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
-      <div className="mt-1 font-display text-3xl text-foreground">{value}</div>
-      {pulse && <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-success animate-pulse-dot" />}
+      <div className="mt-1 font-display text-3xl sm:text-4xl text-foreground animate-count">
+        {value}
+        {suffix && <span className="text-base text-muted-foreground font-sans ml-1">{suffix}</span>}
+      </div>
     </Card>
   );
 }
@@ -340,8 +687,8 @@ function ZoneChip({ active, onClick, children }: { active: boolean; onClick: () 
     <button
       onClick={onClick}
       className={cn(
-        "rounded-full border px-4 py-1.5 text-xs font-medium transition",
-        active ? "bg-primary text-primary-foreground border-primary shadow-soft" : "bg-card hover:border-primary/40",
+        "rounded-full border px-4 py-1.5 text-xs font-medium transition-all",
+        active ? "bg-primary text-primary-foreground border-primary shadow-soft" : "bg-card hover:border-gold hover:text-foreground",
       )}
     >
       {children}
@@ -351,7 +698,7 @@ function ZoneChip({ active, onClick, children }: { active: boolean; onClick: () 
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-border bg-muted/30 py-12 text-center text-sm text-muted-foreground">
+    <div className="rounded-xl border border-dashed border-border bg-muted/30 py-14 text-center text-sm text-muted-foreground">
       {text}
     </div>
   );
@@ -416,7 +763,7 @@ function BookingDialog({
 
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onClose} disabled={busy}>{t("cancel")}</Button>
-          <Button onClick={submit} disabled={busy} className="shadow-elegant">
+          <Button onClick={submit} disabled={busy} className="bg-gradient-gold text-primary hover:opacity-90 border-0 shadow-gold">
             {busy ? "..." : t("confirm")}
           </Button>
         </DialogFooter>
@@ -519,17 +866,5 @@ function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void })
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
-}
-
-function FooterStrip() {
-  const { t, lang } = useLang();
-  return (
-    <footer className="border-t border-border/60 bg-card/40 mt-8">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
-        <div>© {new Date().getFullYear()} {t("brand")}</div>
-        <div>{lang === "th" ? "เปิดทุกวัน 11:00 - 22:00 · ริมแม่น้ำเจ้าพระยา" : "Open daily 11:00 - 22:00 · By the Chao Phraya River"}</div>
-      </div>
-    </footer>
   );
 }
