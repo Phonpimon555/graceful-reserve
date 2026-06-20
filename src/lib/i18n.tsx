@@ -5,34 +5,38 @@ export type Lang = "en" | "th";
 type Dict = Record<string, { en: string; th: string }>;
 
 export const dict = {
-  brand: { en: "Riverside Kitchen", th: "ริเวอร์ไซด์ คิทเช่น" },
-  tagline: { en: "Modern Thai · Riverfront Dining", th: "อาหารไทยร่วมสมัย ริมน้ำ" },
+  brand: { en: "Riverside Kitchen", th: "ครัวริมบึง" },
+  brandFull: { en: "Riverside Kitchen", th: "ครัวริมบึง · Riverside Kitchen" },
+  tagline: { en: "Fine Thai · Lakeside Dining", th: "อาหารไทยรสเลิศ ริมบึง" },
   navBook: { en: "Reserve", th: "จองโต๊ะ" },
   navMenu: { en: "Menu", th: "เมนู" },
   navAdmin: { en: "Admin", th: "ผู้ดูแล" },
   navCancel: { en: "Cancel booking", th: "ยกเลิกการจอง" },
-  heroTitle: { en: "Reserve Your Perfect Table", th: "จองโต๊ะที่ใช่สำหรับคุณ" },
+  heroEyebrow: { en: "Lakeside Fine Dining · Est. 2015", th: "ร้านอาหารริมบึง · ตั้งแต่ปี 2558" },
+  heroTitle: { en: "Riverside Kitchen", th: "ครัวริมบึง" },
   heroSubtitle: {
-    en: "Real-time reservation system with live table availability.",
-    th: "ระบบจองโต๊ะแบบเรียลไทม์ พร้อมสถานะโต๊ะอัปเดตทันที",
+    en: "Lakeside ambience, exquisite Thai cuisine.",
+    th: "ร้านอาหารริมบึง บรรยากาศดี อาหารไทยรสเลิศ",
   },
   ctaReserve: { en: "Reserve a Table", th: "จองโต๊ะ" },
   ctaMenu: { en: "View Menu", th: "ดูเมนู" },
+  ctaExplore: { en: "Explore", th: "ดูเพิ่มเติม" },
   live: { en: "Live", th: "ไลฟ์" },
   step1: { en: "Select Date", th: "เลือกวันที่" },
   step2: { en: "Select Time", th: "เลือกเวลา" },
   step3: { en: "Choose Table", th: "เลือกโต๊ะ" },
   full: { en: "FULL", th: "เต็ม" },
-  zoneRiverside: { en: "Riverside", th: "ริมน้ำ" },
-  zoneAir: { en: "Air Conditioned", th: "ห้องแอร์" },
+  zoneRiverside: { en: "Riverside", th: "ริมบึง" },
+  zoneAir: { en: "Garden", th: "สวน" },
   zoneVip: { en: "VIP", th: "วีไอพี" },
   available: { en: "Available", th: "ว่าง" },
   reserved: { en: "Reserved", th: "ถูกจอง" },
   selected: { en: "Selected", th: "เลือกอยู่" },
   seats: { en: "seats", th: "ที่นั่ง" },
   table: { en: "Table", th: "โต๊ะ" },
-  dashAvailable: { en: "Available Tables", th: "โต๊ะว่าง" },
-  dashReserved: { en: "Reserved Tables", th: "โต๊ะที่ถูกจอง" },
+  dashAvailable: { en: "Available", th: "โต๊ะว่าง" },
+  dashReserved: { en: "Reserved", th: "ถูกจอง" },
+  dashToday: { en: "Today's Bookings", th: "การจองวันนี้" },
   dashOccupancy: { en: "Occupancy", th: "อัตราการจอง" },
   customerName: { en: "Full Name", th: "ชื่อ-นามสกุล" },
   customerPhone: { en: "Phone Number", th: "เบอร์โทรศัพท์" },
@@ -63,6 +67,28 @@ export const dict = {
   findBooking: { en: "Find my bookings", th: "ค้นหาการจองของฉัน" },
   bookingsFor: { en: "Bookings for", th: "การจองสำหรับ" },
   noBookings: { en: "No bookings found for this number.", th: "ไม่พบการจองสำหรับเบอร์นี้" },
+  infoHours: { en: "Open Daily", th: "เปิดทุกวัน" },
+  infoHoursValue: { en: "11:00 — 22:00", th: "11:00 — 22:00 น." },
+  infoPhone: { en: "Reservations", th: "สำรองที่นั่ง" },
+  infoPhoneValue: { en: "+66 2 123 4567", th: "02-123-4567" },
+  infoTables: { en: "Total Tables", th: "จำนวนโต๊ะ" },
+  infoTablesValue: { en: "50 Tables", th: "50 โต๊ะ" },
+  infoSeating: { en: "Seating", th: "ที่นั่ง" },
+  infoSeatingValue: { en: "Standard 6 · VIP 10", th: "ปกติ 6 · VIP 10" },
+  zonesTitle: { en: "Our Dining Zones", th: "โซนของร้าน" },
+  zonesSubtitle: { en: "Three distinct atmospheres, one unforgettable experience.", th: "สามบรรยากาศ หนึ่งประสบการณ์ที่ไม่ลืมเลือน" },
+  zRiversideDesc: { en: "Lakeside view · 20 tables · 6 seats", th: "วิวติดน้ำ · 20 โต๊ะ · 6 ที่นั่ง" },
+  zGardenDesc: { en: "Natural garden · 20 tables · 6 seats", th: "บรรยากาศธรรมชาติ · 20 โต๊ะ · 6 ที่นั่ง" },
+  zVipDesc: { en: "Private room · 10 tables · 10 seats", th: "ห้องส่วนตัว · 10 โต๊ะ · 10 ที่นั่ง" },
+  signatureTitle: { en: "Signature Dishes", th: "เมนูแนะนำ" },
+  signatureSubtitle: { en: "House favourites, crafted from the freshest catch.", th: "เมนูยอดนิยม คัดสรรวัตถุดิบสดใหม่ทุกวัน" },
+  viewDetails: { en: "View Details", th: "ดูรายละเอียด" },
+  galleryTitle: { en: "Atmosphere", th: "บรรยากาศร้าน" },
+  gallerySubtitle: { en: "A glimpse of the experience awaiting you.", th: "ภาพบรรยากาศที่รอคุณอยู่" },
+  footerVisit: { en: "Visit Us", th: "เยี่ยมชมเรา" },
+  footerConnect: { en: "Connect", th: "ติดตามเรา" },
+  footerRights: { en: "All rights reserved.", th: "สงวนลิขสิทธิ์" },
+  bookNow: { en: "Book Now", th: "จองเลย" },
 } satisfies Dict;
 
 type Ctx = {
@@ -106,8 +132,8 @@ export const ZONES = ["Riverside", "AirConditioned", "VIP"] as const;
 export type Zone = (typeof ZONES)[number];
 
 export function zoneLabel(z: string, lang: Lang) {
-  if (z === "Riverside") return lang === "th" ? "ริมน้ำ" : "Riverside";
-  if (z === "AirConditioned") return lang === "th" ? "ห้องแอร์" : "Air Conditioned";
+  if (z === "Riverside") return lang === "th" ? "ริมบึง" : "Riverside";
+  if (z === "AirConditioned") return lang === "th" ? "สวน" : "Garden";
   return lang === "th" ? "วีไอพี" : "VIP";
 }
 
