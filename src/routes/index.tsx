@@ -176,7 +176,7 @@ function InfoBar() {
             </div>
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
-              <div className="font-display text-base sm:text-lg text-foreground truncate">{value}</div>
+              <div className="font-sans font-semibold text-base sm:text-lg text-foreground truncate tabular-nums tracking-tight">{value}</div>
             </div>
           </div>
         ))}
