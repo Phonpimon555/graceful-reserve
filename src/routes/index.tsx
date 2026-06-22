@@ -474,7 +474,7 @@ function SignatureMenu() {
               <p className="text-xs text-muted-foreground mt-1 font-thai">
                 {lang === "th" ? d.name_en : d.name_th}
               </p>
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-auto pt-4 flex items-center justify-between">
                 <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Signature</span>
                 <button
                   onClick={() => document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" })}
