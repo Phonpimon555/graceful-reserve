@@ -68,76 +68,68 @@ function HomePage() {
 function Hero() {
   const { t, lang } = useLang();
   return (
-    <section className="relative min-h-[88vh] sm:min-h-[92vh] w-full overflow-hidden flex items-center justify-center -mt-16 pt-16">
+    <section className="relative h-[60vh] min-h-[460px] w-full overflow-hidden flex items-center justify-center -mt-16 pt-16">
       {/* Background */}
       <img
         src={heroImg}
         alt="Riverside Kitchen at sunset"
         width={1920}
         height={1080}
-        className="absolute inset-0 h-full w-full object-cover scale-105 animate-fade-in"
+        className="absolute inset-0 h-full w-full object-cover animate-fade-in"
         fetchPriority="high"
       />
       {/* Overlays */}
-      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-0 bg-black/45" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
 
       {/* Content */}
       <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 text-center text-white animate-fade-up">
-        <div className="inline-flex items-center gap-2 rounded-full glass-dark px-5 py-2 text-[10px] sm:text-xs uppercase tracking-[0.25em] mb-8 text-white/90">
+        <div className="inline-flex items-center gap-2 rounded-full glass-dark px-4 py-1.5 text-[10px] sm:text-xs uppercase tracking-[0.25em] mb-4 text-white/90">
           <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse-dot" />
           {t("heroEyebrow")}
         </div>
 
         {/* Logo crest */}
-        <div className="flex items-center justify-center gap-4 mb-6">
-          <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent to-gold/70" />
-          <div className="grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-full bg-gradient-gold text-primary font-display text-2xl sm:text-3xl shadow-gold">
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <div className="h-px w-10 sm:w-16 bg-gradient-to-r from-transparent to-gold/70" />
+          <div className="grid h-12 w-12 sm:h-14 sm:w-14 place-items-center rounded-full bg-gradient-gold text-primary font-display text-2xl shadow-gold">
             ค
           </div>
-          <div className="h-px w-12 sm:w-20 bg-gradient-to-l from-transparent to-gold/70" />
+          <div className="h-px w-10 sm:w-16 bg-gradient-to-l from-transparent to-gold/70" />
         </div>
 
-        <h1 className="font-display text-5xl sm:text-7xl lg:text-8xl leading-[1.02] tracking-tight">
+        <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl leading-[1.02] tracking-tight">
           {lang === "th" ? (
             <>
               <span className="block">ครัวริมบึง</span>
-              <span className="block text-2xl sm:text-3xl lg:text-4xl mt-3 text-gold tracking-[0.3em] font-sans font-light uppercase">Riverside Kitchen</span>
+              <span className="block text-xl sm:text-2xl lg:text-3xl mt-2 text-gold tracking-[0.3em] font-sans font-light uppercase">Riverside Kitchen</span>
             </>
           ) : (
             <>
               <span className="block">Riverside Kitchen</span>
-              <span className="block text-2xl sm:text-3xl lg:text-4xl mt-3 text-gold tracking-[0.3em] font-thai font-light">ครัวริมบึง</span>
+              <span className="block text-xl sm:text-2xl lg:text-3xl mt-2 text-gold tracking-[0.3em] font-thai font-light">ครัวริมบึง</span>
             </>
           )}
         </h1>
 
-        <p className="mt-8 text-base sm:text-xl text-white/85 max-w-2xl mx-auto font-light leading-relaxed">
+        <p className="mt-4 text-sm sm:text-lg text-white/85 max-w-2xl mx-auto font-light leading-relaxed">
           {t("heroSubtitle")}
         </p>
 
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Button
             size="lg"
-            className="rounded-full px-8 h-12 text-sm bg-gradient-gold text-primary hover:opacity-95 hover:scale-[1.03] shadow-gold border-0 transition-all"
+            className="rounded-full px-7 h-11 text-sm bg-gradient-gold text-primary hover:opacity-95 hover:scale-[1.03] shadow-gold border-0 transition-all"
             onClick={() => document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" })}
           >
             <Sparkles className="mr-2 h-4 w-4" />
             {t("ctaReserve")}
           </Button>
-          <Button asChild size="lg" variant="outline" className="rounded-full px-8 h-12 text-sm glass-dark text-white border-white/30 hover:bg-white/10 hover:text-white">
+          <Button asChild size="lg" variant="outline" className="rounded-full px-7 h-11 text-sm glass-dark text-white border-white/30 hover:bg-white/10 hover:text-white">
             <a href="/menu">{t("ctaMenu")}</a>
           </Button>
         </div>
       </div>
-
-      <a
-        href="#info"
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 text-white/70 hover:text-gold transition-colors animate-pulse-dot"
-        aria-label="Scroll"
-      >
-        <ChevronDown className="h-6 w-6" />
-      </a>
     </section>
   );
 }
@@ -153,12 +145,12 @@ function InfoBar() {
     { icon: Users, label: t("infoSeating"), value: t("infoSeatingValue") },
   ];
   return (
-    <section id="info" className="relative -mt-16 sm:-mt-20 z-20 mx-auto max-w-6xl px-4 sm:px-6">
-      <div className="glass rounded-3xl shadow-elegant border border-white/60 grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border/50 overflow-hidden">
+    <section id="info" className="mx-auto max-w-6xl px-4 sm:px-6 pt-10 sm:pt-14">
+      <div className="bg-card rounded-2xl shadow-elegant border border-border/60 grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border/50 overflow-hidden">
         {items.map(({ icon: Icon, label, value }) => (
-          <div key={label} className="p-5 sm:p-6 flex items-center gap-4 hover:bg-white/40 transition-colors">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-gold text-primary shadow-soft">
-              <Icon className="h-5 w-5" />
+          <div key={label} className="p-4 sm:p-5 flex items-center gap-3 hover:bg-muted/40 transition-colors">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-gold text-primary shadow-soft">
+              <Icon className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
