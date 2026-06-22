@@ -89,6 +89,10 @@ export const dict = {
   footerConnect: { en: "Connect", th: "ติดตามเรา" },
   footerRights: { en: "All rights reserved.", th: "สงวนลิขสิทธิ์" },
   bookNow: { en: "Book Now", th: "จองเลย" },
+  hl50Tables: { en: "50 Tables", th: "50 โต๊ะ" },
+  hlRiverside: { en: "Riverside View", th: "วิวริมบึง" },
+  hlVip: { en: "VIP Rooms", th: "ห้องวีไอพี" },
+  hlOpenDaily: { en: "Open Daily", th: "เปิดทุกวัน" },
 } satisfies Dict;
 
 type Ctx = {
