@@ -400,10 +400,10 @@ function ZonesSection() {
     { icon: Crown, name: t("zoneVip"), desc: t("zVipDesc"), img: galleryVip, emoji: "👑" },
   ];
   return (
-    <section className="bg-gradient-warm py-20 sm:py-28">
+    <section className="bg-gradient-warm py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <SectionHeader eyebrow="3 Zones" title={t("zonesTitle")} subtitle={t("zonesSubtitle")} />
-        <div className="grid md:grid-cols-3 gap-6 mt-12">
+        <div className="grid md:grid-cols-3 gap-6 mt-10">
           {zones.map((z) => (
             <div key={z.name} className="group relative overflow-hidden rounded-3xl shadow-soft hover:shadow-elegant transition-all duration-500 hover:-translate-y-1.5">
               <div className="aspect-[4/5] overflow-hidden">
