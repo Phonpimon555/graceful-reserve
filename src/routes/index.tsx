@@ -116,18 +116,40 @@ function Hero() {
           {t("heroSubtitle")}
         </p>
 
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Button
             size="lg"
-            className="rounded-full px-7 h-11 text-sm bg-gradient-gold text-primary hover:opacity-95 hover:scale-[1.03] shadow-gold border-0 transition-all"
+            className="rounded-full px-7 h-12 text-sm font-semibold bg-gradient-gold text-primary hover:opacity-95 hover:scale-[1.03] shadow-gold border-0 transition-all"
             onClick={() => document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" })}
           >
             <Sparkles className="mr-2 h-4 w-4" />
             {t("ctaReserve")}
           </Button>
-          <Button asChild size="lg" variant="outline" className="rounded-full px-7 h-11 text-sm glass-dark text-white border-white/30 hover:bg-white/10 hover:text-white">
+          <Button
+            asChild
+            size="lg"
+            className="rounded-full px-7 h-12 text-sm font-semibold bg-white text-primary border-2 border-gold hover:bg-gold hover:text-primary hover:shadow-gold hover:scale-[1.03] transition-all"
+          >
             <a href="/menu">{t("ctaMenu")}</a>
           </Button>
+        </div>
+
+        {/* Highlights row */}
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          {[
+            { icon: Utensils, label: t("hl50Tables") },
+            { icon: Waves, label: t("hlRiverside") },
+            { icon: Crown, label: t("hlVip") },
+            { icon: Clock, label: t("hlOpenDaily") },
+          ].map(({ icon: Icon, label }) => (
+            <span
+              key={label}
+              className="inline-flex items-center gap-2 rounded-full glass-dark px-3.5 py-1.5 text-xs sm:text-sm text-white/95 border-white/15"
+            >
+              <Icon className="h-3.5 w-3.5 text-gold" />
+              <span className="font-sans font-medium tabular-nums">{label}</span>
+            </span>
+          ))}
         </div>
       </div>
     </section>
