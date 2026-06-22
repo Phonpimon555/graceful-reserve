@@ -789,7 +789,7 @@ function DetailCell({ label, value, small }: { label: string; value: string; sma
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={cn("font-display", small ? "text-base" : "text-xl")}>{value}</div>
+      <div className={cn("font-sans font-semibold tabular-nums tracking-tight", small ? "text-base" : "text-xl")}>{value}</div>
     </div>
   );
 }
