@@ -445,23 +445,22 @@ function SignatureMenu() {
   ];
 
   return (
-    <section className="mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-28">
+    <section className="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-20">
       <SectionHeader eyebrow="Chef's Selection" title={t("signatureTitle")} subtitle={t("signatureSubtitle")} />
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
-        {dishes.map((d, i) => (
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-10">
+        {dishes.map((d) => (
           <Card
             key={d.name_en}
-            className={cn(
-              "group overflow-hidden border-border/60 shadow-soft hover:shadow-elegant transition-all duration-500 hover:-translate-y-1 bg-card",
-              i === 0 && "lg:col-span-2 lg:row-span-1",
-            )}
+            className="group flex flex-col overflow-hidden border-border/60 shadow-soft hover:shadow-elegant transition-all duration-500 hover:-translate-y-1 bg-card"
           >
-            <div className={cn("relative overflow-hidden", i === 0 ? "aspect-[16/9]" : "aspect-[4/3]")}>
+            <div className="relative overflow-hidden aspect-[4/3]">
               <img
                 src={d.img}
                 alt={lang === "th" ? d.name_th : d.name_en}
                 loading="lazy"
+                width={1024}
+                height={768}
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
               <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-gold text-primary font-display text-sm shadow-soft">
