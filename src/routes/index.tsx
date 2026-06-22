@@ -467,7 +467,7 @@ function SignatureMenu() {
                 ฿{d.price}
               </div>
             </div>
-            <div className="p-5">
+            <div className="p-5 flex flex-col flex-1">
               <h3 className="font-display text-xl sm:text-2xl leading-tight">
                 {lang === "th" ? d.name_th : d.name_en}
               </h3>
