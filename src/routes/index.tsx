@@ -485,7 +485,7 @@ function SignatureMenu() {
                 height={768}
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
-              <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-gold text-primary font-display text-sm shadow-soft">
+              <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-gradient-gold text-primary font-sans font-bold text-sm shadow-soft tabular-nums">
                 ฿{d.price}
               </div>
             </div>
