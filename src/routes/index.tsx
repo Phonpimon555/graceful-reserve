@@ -228,7 +228,7 @@ function BookingSection() {
   }, [tables, reservedTableIds, reservations]);
 
   return (
-    <section id="booking" className="mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-28 space-y-10">
+    <section id="booking" className="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-20 space-y-8">
       <SectionHeader
         eyebrow={t("live") + " · Real-time"}
         title={t("ctaReserve")}
