@@ -678,9 +678,9 @@ function Stat({
         {pulse && <span className="h-2 w-2 rounded-full bg-success animate-pulse-dot" />}
       </div>
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
-      <div className="mt-1 font-display text-3xl sm:text-4xl text-foreground animate-count">
+      <div className="mt-1 font-sans font-bold text-3xl sm:text-4xl text-foreground animate-count tabular-nums tracking-tight">
         {value}
-        {suffix && <span className="text-base text-muted-foreground font-sans ml-1">{suffix}</span>}
+        {suffix && <span className="text-base text-muted-foreground font-medium ml-1">{suffix}</span>}
       </div>
     </Card>
   );
