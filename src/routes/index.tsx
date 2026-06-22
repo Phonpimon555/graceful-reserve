@@ -504,10 +504,10 @@ function GallerySection() {
     { src: heroImg, alt: "Riverside terrace", h: "" },
   ];
   return (
-    <section className="bg-gradient-warm py-20 sm:py-28">
+    <section className="bg-gradient-warm py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <SectionHeader eyebrow="Gallery" title={t("galleryTitle")} subtitle={t("gallerySubtitle")} />
-        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 grid-rows-2 gap-3 sm:gap-4 auto-rows-[180px] sm:auto-rows-[220px]">
+        <div className="mt-10 grid grid-cols-2 md:grid-cols-4 grid-rows-2 gap-3 sm:gap-4 auto-rows-[180px] sm:auto-rows-[220px]">
           {images.map((img, i) => (
             <div
               key={i}
