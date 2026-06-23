@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import {
   Calendar as CalendarIcon, Clock, MapPin, Users, Sparkles, X, Search,
@@ -130,7 +130,7 @@ function Hero() {
             size="lg"
             className="rounded-full px-7 h-12 text-sm font-semibold bg-white text-primary border-2 border-gold hover:bg-gold hover:text-primary hover:shadow-gold hover:scale-[1.03] transition-all"
           >
-            <a href="/menu">{t("ctaMenu")}</a>
+            <Link to="/menu">{t("ctaMenu")}</Link>
           </Button>
         </div>
 
