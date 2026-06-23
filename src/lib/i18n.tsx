@@ -93,6 +93,16 @@ export const dict = {
   hlRiverside: { en: "Riverside View", th: "วิวริมบึง" },
   hlVip: { en: "VIP Rooms", th: "ห้องวีไอพี" },
   hlOpenDaily: { en: "Open Daily", th: "เปิดทุกวัน" },
+  menuSearch: { en: "Search menu items…", th: "ค้นหาเมนู…" },
+  catAll: { en: "All", th: "ทั้งหมด" },
+  catPopular: { en: "Popular", th: "อาหารแนะนำ" },
+  catThai: { en: "Thai", th: "อาหารไทย" },
+  catSeafood: { en: "Seafood", th: "อาหารทะเล" },
+  catDrinks: { en: "Drinks", th: "เครื่องดื่ม" },
+  catDesserts: { en: "Desserts", th: "ของหวาน" },
+  popular: { en: "Popular", th: "ยอดนิยม" },
+  menuEmpty: { en: "No dishes match your search.", th: "ไม่พบเมนูที่ค้นหา" },
+  itemsCount: { en: "dishes", th: "เมนู" },
 } satisfies Dict;
 
 type Ctx = {
