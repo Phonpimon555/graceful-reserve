@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ReservationRouteImport } from './routes/reservation'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MenuRouteImport } from './routes/menu'
@@ -24,6 +25,11 @@ import { Route as ApiTablesAvailableRouteImport } from './routes/api/tables/avai
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReservationRoute = ReservationRouteImport.update({
+  id: '/reservation',
+  path: '/reservation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/menu': typeof MenuRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/reservation': typeof ReservationRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/reservations': typeof ApiReservationsRoute
   '/api/tables/available': typeof ApiTablesAvailableRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/menu': typeof MenuRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/reservation': typeof ReservationRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/reservations': typeof ApiReservationsRoute
   '/api/tables/available': typeof ApiTablesAvailableRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/menu': typeof MenuRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/reservation': typeof ReservationRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/reservations': typeof ApiReservationsRoute
   '/api/tables/available': typeof ApiTablesAvailableRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/profile'
     | '/register'
+    | '/reservation'
     | '/sitemap.xml'
     | '/api/reservations'
     | '/api/tables/available'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/profile'
     | '/register'
+    | '/reservation'
     | '/sitemap.xml'
     | '/api/reservations'
     | '/api/tables/available'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/profile'
     | '/register'
+    | '/reservation'
     | '/sitemap.xml'
     | '/api/reservations'
     | '/api/tables/available'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   MenuRoute: typeof MenuRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
+  ReservationRoute: typeof ReservationRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiReservationsRoute: typeof ApiReservationsRoute
   ApiTablesAvailableRoute: typeof ApiTablesAvailableRoute
@@ -180,6 +193,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reservation': {
+      id: '/reservation'
+      path: '/reservation'
+      fullPath: '/reservation'
+      preLoaderRoute: typeof ReservationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   MenuRoute: MenuRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
+  ReservationRoute: ReservationRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiReservationsRoute: ApiReservationsRoute,
   ApiTablesAvailableRoute: ApiTablesAvailableRoute,
