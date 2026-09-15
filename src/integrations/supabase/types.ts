@@ -21,6 +21,9 @@ export type Database = {
           description_th: string | null
           id: string
           image_url: string | null
+          ingredients_en: string | null
+          ingredients_th: string | null
+          is_visible: boolean
           name_en: string
           name_th: string
           price: number
@@ -32,6 +35,9 @@ export type Database = {
           description_th?: string | null
           id?: string
           image_url?: string | null
+          ingredients_en?: string | null
+          ingredients_th?: string | null
+          is_visible?: boolean
           name_en: string
           name_th: string
           price: number
@@ -43,10 +49,40 @@ export type Database = {
           description_th?: string | null
           id?: string
           image_url?: string | null
+          ingredients_en?: string | null
+          ingredients_th?: string | null
+          is_visible?: boolean
           name_en?: string
           name_th?: string
           price?: number
           sort_order?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -55,28 +91,40 @@ export type Database = {
           created_at: string
           customer_name: string
           id: string
+          party_size: number
           phone: string
           reservation_date: string
+          status: Database["public"]["Enums"]["reservation_status"]
           table_id: string
           time_slot: string
+          updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           customer_name: string
           id?: string
+          party_size?: number
           phone: string
           reservation_date: string
+          status?: Database["public"]["Enums"]["reservation_status"]
           table_id: string
           time_slot: string
+          updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           customer_name?: string
           id?: string
+          party_size?: number
           phone?: string
           reservation_date?: string
+          status?: Database["public"]["Enums"]["reservation_status"]
           table_id?: string
           time_slot?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -88,11 +136,66 @@ export type Database = {
           },
         ]
       }
+      restaurant_info: {
+        Row: {
+          close_time: string | null
+          created_at: string
+          description_en: string | null
+          description_th: string | null
+          id: string
+          name_en: string
+          name_th: string
+          open_time: string | null
+          phone: string | null
+          seating_info_en: string | null
+          seating_info_th: string | null
+          total_tables: number | null
+          updated_at: string
+          zone_info_en: string | null
+          zone_info_th: string | null
+        }
+        Insert: {
+          close_time?: string | null
+          created_at?: string
+          description_en?: string | null
+          description_th?: string | null
+          id?: string
+          name_en: string
+          name_th: string
+          open_time?: string | null
+          phone?: string | null
+          seating_info_en?: string | null
+          seating_info_th?: string | null
+          total_tables?: number | null
+          updated_at?: string
+          zone_info_en?: string | null
+          zone_info_th?: string | null
+        }
+        Update: {
+          close_time?: string | null
+          created_at?: string
+          description_en?: string | null
+          description_th?: string | null
+          id?: string
+          name_en?: string
+          name_th?: string
+          open_time?: string | null
+          phone?: string | null
+          seating_info_en?: string | null
+          seating_info_th?: string | null
+          total_tables?: number | null
+          updated_at?: string
+          zone_info_en?: string | null
+          zone_info_th?: string | null
+        }
+        Relationships: []
+      }
       tables: {
         Row: {
           capacity: number
           created_at: string
           id: string
+          status: string
           table_number: number
           zone: string
         }
@@ -100,6 +203,7 @@ export type Database = {
           capacity: number
           created_at?: string
           id: string
+          status?: string
           table_number: number
           zone: string
         }
@@ -107,20 +211,74 @@ export type Database = {
           capacity?: number
           created_at?: string
           id?: string
+          status?: string
           table_number?: number
           zone?: string
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      table_availability: {
+        Row: {
+          reservation_date: string | null
+          table_id: string | null
+          time_slot: string | null
+        }
+        Insert: {
+          reservation_date?: string | null
+          table_id?: string | null
+          time_slot?: string | null
+        }
+        Update: {
+          reservation_date?: string | null
+          table_id?: string | null
+          time_slot?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      reservation_status: "pending" | "confirmed" | "cancelled" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -247,6 +405,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      reservation_status: ["pending", "confirmed", "cancelled", "completed"],
+    },
   },
 } as const
