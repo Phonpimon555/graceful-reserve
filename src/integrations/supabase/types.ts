@@ -268,6 +268,13 @@ export type Database = {
       }
     }
     Functions: {
+      booked_slots: {
+        Args: { _date: string }
+        Returns: {
+          table_id: string
+          time_slot: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
