@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import {
-  Calendar as CalendarIcon, Clock, MapPin, Users, Sparkles, X, Search,
+  Calendar as CalendarIcon, Clock, MapPin, Users, Sparkles, X,
   Phone, Utensils, Crown, Trees, Waves, ChevronDown, Facebook, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -21,10 +21,11 @@ import { cn } from "@/lib/utils";
 
 import { TIME_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
-  fetchTables, fetchReservationsForDate, createReservation,
-  cancelReservation, findReservationsByPhone,
+  fetchActiveTables, fetchReservationsForDate, createReservation,
+  fetchMyReservations, cancelMyReservation,
   type TableRow, type Reservation,
 } from "@/lib/reservations";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 import heroImg from "@/assets/hero-riverside.jpg";
@@ -196,10 +197,11 @@ function BookingSection() {
   const [zoneFilter, setZoneFilter] = useState<Zone | "all">("all");
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [partySize, setPartySize] = useState(2);
 
   const dateKey = date ? format(date, "yyyy-MM-dd") : "";
 
-  const tablesQ = useQuery({ queryKey: ["tables"], queryFn: fetchTables });
+  const tablesQ = useQuery({ queryKey: ["activeTables"], queryFn: fetchActiveTables });
   const resQ = useQuery({
     queryKey: ["reservations", dateKey],
     queryFn: () => fetchReservationsForDate(dateKey),
@@ -233,8 +235,10 @@ function BookingSection() {
   }, [reservations, slot]);
 
   const filteredTables = useMemo(
-    () => zoneFilter === "all" ? tables : tables.filter((t) => t.zone === zoneFilter),
-    [tables, zoneFilter],
+    () => tables
+      .filter((t) => (zoneFilter === "all" ? true : t.zone === zoneFilter))
+      .filter((t) => t.capacity >= partySize),
+    [tables, zoneFilter, partySize],
   );
 
   const totals = useMemo(() => {
@@ -353,6 +357,34 @@ function BookingSection() {
           ))}
         </div>
 
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+          <span className="text-sm text-muted-foreground">
+            {lang === "th" ? "จำนวนผู้เข้าร่วม" : "Number of guests"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline" size="icon" className="h-8 w-8 rounded-full"
+              onClick={() => { setPartySize((n) => Math.max(1, n - 1)); setSelectedTable(null); }}
+              aria-label={lang === "th" ? "ลดจำนวน" : "Decrease"}
+            >
+              −
+            </Button>
+            <span className="w-10 text-center font-sans text-lg font-semibold tabular-nums">{partySize}</span>
+            <Button
+              variant="outline" size="icon" className="h-8 w-8 rounded-full"
+              onClick={() => { setPartySize((n) => Math.min(20, n + 1)); setSelectedTable(null); }}
+              aria-label={lang === "th" ? "เพิ่มจำนวน" : "Increase"}
+            >
+              +
+            </Button>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {lang === "th"
+              ? `แสดงเฉพาะโต๊ะที่รองรับได้ ${partySize} คนขึ้นไป`
+              : `Showing tables that seat ${partySize} or more`}
+          </span>
+        </div>
+
         {!slot ? (
           <EmptyHint text={!date ? t("pickDate") : t("pickSlot")} />
         ) : (
@@ -401,8 +433,10 @@ function BookingSection() {
         table={selectedTable}
         date={dateKey}
         slot={slot}
+        partySize={partySize}
         onSuccess={() => {
           qc.invalidateQueries({ queryKey: ["reservations", dateKey] });
+          qc.invalidateQueries({ queryKey: ["myReservations"] });
           setSelectedTable(null);
         }}
       />
@@ -720,17 +754,25 @@ function EmptyHint({ text }: { text: string }) {
 }
 
 function BookingDialog({
-  open, onClose, table, date, slot, onSuccess,
+  open, onClose, table, date, slot, partySize, onSuccess,
 }: {
   open: boolean; onClose: () => void; table: TableRow | null;
-  date: string; slot: string | null; onSuccess: () => void;
+  date: string; slot: string | null; partySize: number; onSuccess: () => void;
 }) {
   const { t, lang } = useLang();
+  const { user, profile } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { if (!open) { setName(""); setPhone(""); } }, [open]);
+  useEffect(() => {
+    if (open) {
+      setName(profile?.full_name ?? "");
+      setPhone(profile?.phone ?? "");
+    } else {
+      setName(""); setPhone("");
+    }
+  }, [open, profile]);
 
   const submit = async () => {
     if (!table || !slot || !date) return;
@@ -740,6 +782,8 @@ function BookingDialog({
     const res = await createReservation({
       table_id: table.id, customer_name: name.trim(), phone: phone.trim(),
       reservation_date: date, time_slot: slot,
+      party_size: partySize,
+      user_id: user?.id ?? null,
     });
     setBusy(false);
     if (res.ok) { toast.success(t("bookingSuccess")); onSuccess(); }
