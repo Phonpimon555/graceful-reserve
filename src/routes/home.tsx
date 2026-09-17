@@ -843,32 +843,32 @@ function DetailCell({ label, value, small }: { label: string; value: string; sma
 function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t, lang } = useLang();
   const qc = useQueryClient();
-  const [phone, setPhone] = useState("");
-  const [results, setResults] = useState<Reservation[] | null>(null);
+  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [pendingCancel, setPendingCancel] = useState<Reservation | null>(null);
 
-  useEffect(() => { if (!open) { setPhone(""); setResults(null); setPendingCancel(null); } }, [open]);
+  const myQ = useQuery({
+    queryKey: ["myReservations"],
+    queryFn: fetchMyReservations,
+    enabled: open && !!user,
+  });
 
-  const lookup = async () => {
-    if (phone.replace(/\D/g, "").length < 9) { toast.error(lang === "th" ? "เบอร์โทรไม่ถูกต้อง" : "Invalid phone"); return; }
-    setBusy(true);
-    const data = await findReservationsByPhone(phone);
-    setBusy(false);
-    setResults(data);
-  };
+  useEffect(() => { if (!open) setPendingCancel(null); }, [open]);
+
+  const active = (myQ.data ?? []).filter((r) => r.status !== "cancelled" && r.status !== "completed");
 
   const doCancel = async () => {
     if (!pendingCancel) return;
     setBusy(true);
-    const r = await cancelReservation(pendingCancel.id, phone);
+    const r = await cancelMyReservation(pendingCancel.id);
     setBusy(false);
     if (r.ok) {
       toast.success(t("cancelSuccess"));
-      setResults((prev) => prev?.filter((x) => x.id !== pendingCancel.id) ?? null);
+      qc.invalidateQueries({ queryKey: ["myReservations"] });
       qc.invalidateQueries({ queryKey: ["reservations"] });
-    } else if (r.reason === "phone_mismatch") toast.error(t("phoneMismatch"));
-    else toast.error(String(r.reason));
+    } else {
+      toast.error(String(r.reason));
+    }
     setPendingCancel(null);
   };
 
@@ -878,33 +878,51 @@ function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void })
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">{t("navCancel")}</DialogTitle>
-            <DialogDescription>{t("cancelByPhone")}</DialogDescription>
+            <DialogDescription>
+              {lang === "th"
+                ? "ยกเลิกการจองของคุณจากรายการด้านล่าง"
+                : "Cancel one of your reservations below."}
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex gap-2">
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="081-234-5678" inputMode="tel" />
-            <Button onClick={lookup} disabled={busy}><Search className="h-4 w-4 mr-1.5" />{t("findBooking")}</Button>
-          </div>
 
-          {results !== null && (
+          {!user ? (
+            <div className="space-y-3 py-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                {lang === "th"
+                  ? "กรุณาเข้าสู่ระบบเพื่อดูและยกเลิกการจองของคุณ"
+                  : "Please sign in to view and cancel your reservations."}
+              </p>
+              <Button asChild className="bg-gradient-gold text-primary border-0 shadow-gold">
+                <Link to="/login">{lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}</Link>
+              </Button>
+            </div>
+          ) : myQ.isLoading ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {lang === "th" ? "กำลังโหลด..." : "Loading..."}
+            </p>
+          ) : myQ.isError ? (
+            <p className="py-8 text-center text-sm text-destructive">
+              {lang === "th" ? "โหลดข้อมูลไม่สำเร็จ" : "Failed to load reservations."}
+            </p>
+          ) : active.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {lang === "th" ? "ยังไม่มีประวัติการจอง" : "No reservations yet."}
+            </p>
+          ) : (
             <div className="space-y-2 max-h-72 overflow-auto">
-              {results.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">{t("noBookings")}</p>
-              ) : (
-                <>
-                  <div className="text-xs text-muted-foreground">{t("bookingsFor")} {phone}</div>
-                  {results.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border p-3 bg-card">
-                      <div className="min-w-0">
-                        <div className="font-display text-lg">{r.table_id} · {r.time_slot}</div>
-                        <div className="text-xs text-muted-foreground">{format(new Date(r.reservation_date), "EEE, MMM d, yyyy")} · {r.customer_name}</div>
-                      </div>
-                      <Button size="sm" variant="destructive" onClick={() => setPendingCancel(r)}>
-                        {t("cancel")}
-                      </Button>
+              {active.map((r) => (
+                <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border p-3 bg-card">
+                  <div className="min-w-0">
+                    <div className="font-display text-lg">{r.table_id} · {r.time_slot}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(r.reservation_date), "EEE, MMM d, yyyy")} · {r.customer_name} · {r.party_size}
                     </div>
-                  ))}
-                </>
-              )}
+                  </div>
+                  <Button size="sm" variant="destructive" onClick={() => setPendingCancel(r)}>
+                    {t("cancel")}
+                  </Button>
+                </div>
+              ))}
             </div>
           )}
         </DialogContent>
@@ -917,8 +935,8 @@ function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void })
             <AlertDialogDescription>{t("confirmCancelBody")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={doCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogCancel disabled={busy}>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={doCancel} disabled={busy} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {t("yesCancel")}
             </AlertDialogAction>
           </AlertDialogFooter>
