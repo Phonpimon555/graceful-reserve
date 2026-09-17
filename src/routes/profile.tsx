@@ -1,120 +1,128 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import heroImg from "@/assets/hero-riverside.jpg";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { NavBar } from "@/components/NavBar";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/profile")({
-  component: Profile,
+  head: () => ({
+    meta: [
+      { title: "โปรไฟล์ · My Profile — Riverside Kitchen" },
+      { name: "description", content: "Manage your Riverside Kitchen member profile: name, phone and email." },
+      { property: "og:title", content: "My Profile — Riverside Kitchen" },
+      { property: "og:description", content: "Manage your member profile details." },
+    ],
+  }),
+  component: ProfilePage,
 });
 
-function Profile() {
+function ProfilePage() {
+  const { lang } = useLang();
+  const { user, profile, loading, refreshProfile } = useAuth();
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setFullName(profile?.full_name ?? "");
+    setPhone(profile?.phone ?? "");
+  }, [profile]);
+
+  const save = async () => {
+    if (!user) return;
+    if (fullName.trim().length < 2) {
+      toast.error(lang === "th" ? "กรุณากรอกชื่อ-นามสกุล" : "Please enter your full name");
+      return;
+    }
+    if (phone.replace(/\D/g, "").length < 9) {
+      toast.error(lang === "th" ? "เบอร์โทรไม่ถูกต้อง" : "Invalid phone number");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({
+        id: user.id,
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        email: user.email ?? null,
+      })
+      .select()
+      .single();
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    await refreshProfile();
+    toast.success(lang === "th" ? "บันทึกข้อมูลแล้ว" : "Profile saved");
+  };
+
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="min-h-screen bg-background">
+      <NavBar />
+      <main className="mx-auto max-w-2xl px-4 sm:px-6 py-12 sm:py-16">
+        <h1 className="font-display text-4xl text-foreground">
+          {lang === "th" ? "โปรไฟล์สมาชิก" : "Member Profile"}
+        </h1>
+        <div className="mt-3 h-px w-24 gold-divider" />
 
-      {/* Background */}
-      <img
-        src={heroImg}
-        className="absolute inset-0 w-full h-full object-cover"
-      />
-
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-      {/* Card */}
-      <div className="relative flex items-center justify-center min-h-screen px-5 py-10">
-
-        <div className="w-full max-w-lg rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl p-8">
-
-          {/* Avatar */}
-          <div className="flex flex-col items-center">
-
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-5xl shadow-lg">
-              👤
+        {loading ? (
+          <Card className="mt-8 p-8">
+            <div className="space-y-4">
+              <div className="h-5 w-1/3 animate-pulse rounded bg-muted" />
+              <div className="h-11 animate-pulse rounded bg-muted" />
+              <div className="h-11 animate-pulse rounded bg-muted" />
             </div>
-
-            <h1 className="text-3xl font-bold text-white mt-5">
-              โปรไฟล์สมาชิก
-            </h1>
-
-            <p className="text-yellow-300 tracking-[3px] uppercase">
-              Riverside Kitchen
+          </Card>
+        ) : !user ? (
+          <Card className="mt-8 p-10 text-center space-y-4">
+            <p className="text-muted-foreground">
+              {lang === "th"
+                ? "กรุณาเข้าสู่ระบบเพื่อดูและแก้ไขโปรไฟล์ของคุณ"
+                : "Please sign in to view and edit your profile."}
             </p>
-
-          </div>
-
-          {/* Form */}
-
-          <div className="space-y-4 mt-8">
-
-            <div>
-              <label className="text-white text-sm">
-                ชื่อ - นามสกุล
-              </label>
-
-              <input
-                type="text"
-                defaultValue="คุณครีม"
-                className="mt-2 w-full rounded-xl bg-white/20 border border-white/30 text-white placeholder:text-gray-300 px-4 py-3 outline-none focus:border-yellow-400"
-              />
+            <Button asChild className="bg-gradient-gold text-primary border-0 shadow-gold">
+              <Link to="/login">{lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}</Link>
+            </Button>
+          </Card>
+        ) : (
+          <Card className="mt-8 p-6 sm:p-8 space-y-5 shadow-elegant">
+            <div className="space-y-1.5">
+              <Label htmlFor="fullName">{lang === "th" ? "ชื่อ - นามสกุล" : "Full name"}</Label>
+              <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={80} />
             </div>
 
-            <div>
-              <label className="text-white text-sm">
-                เบอร์โทรศัพท์
-              </label>
-
-              <input
-                type="tel"
-                defaultValue="0812345678"
-                className="mt-2 w-full rounded-xl bg-white/20 border border-white/30 text-white px-4 py-3 outline-none focus:border-yellow-400"
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">{lang === "th" ? "เบอร์โทรศัพท์" : "Phone"}</Label>
+              <Input id="phone" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} />
             </div>
 
-            <div>
-              <label className="text-white text-sm">
-                อีเมล
-              </label>
-
-              <input
-                type="email"
-                placeholder="example@gmail.com"
-                className="mt-2 w-full rounded-xl bg-white/20 border border-white/30 text-white px-4 py-3 outline-none focus:border-yellow-400"
-              />
+            <div className="space-y-1.5">
+              <Label htmlFor="email">{lang === "th" ? "อีเมล" : "Email"}</Label>
+              <Input id="email" value={profile?.email ?? user.email ?? ""} readOnly disabled />
+              <p className="text-xs text-muted-foreground">
+                {lang === "th" ? "อีเมลใช้สำหรับเข้าสู่ระบบ จึงแก้ไขไม่ได้" : "Email is your sign-in ID and cannot be changed."}
+              </p>
             </div>
 
-            <div>
-              <label className="text-white text-sm">
-                วันเกิด
-              </label>
-
-              <input
-                type="date"
-                className="mt-2 w-full rounded-xl bg-white/20 border border-white/30 text-white px-4 py-3 outline-none focus:border-yellow-400"
-              />
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button onClick={save} disabled={busy} className="bg-gradient-gold text-primary border-0 shadow-gold">
+                {busy ? "..." : lang === "th" ? "บันทึกข้อมูล" : "Save changes"}
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/history">{lang === "th" ? "ประวัติการจอง" : "Booking history"}</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link to="/home">{lang === "th" ? "← กลับหน้าหลัก" : "← Back home"}</Link>
+              </Button>
             </div>
-
-          </div>
-
-          {/* Buttons */}
-
-          <div className="mt-8 space-y-3">
-
-            <button
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-600 text-black font-bold hover:scale-105 transition"
-            >
-              💾 บันทึกข้อมูล
-            </button>
-
-            <Link
-              to="/home"
-              className="block w-full text-center py-4 rounded-xl border border-white/30 text-white hover:bg-white/20 transition"
-            >
-              ← กลับหน้าหลัก
-            </Link>
-
-          </div>
-
-        </div>
-
-      </div>
-
+          </Card>
+        )}
+      </main>
     </div>
   );
 }
