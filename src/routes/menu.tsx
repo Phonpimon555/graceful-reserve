@@ -254,8 +254,16 @@ function MenuPage() {
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 flex-1">
-                      {lang === "th" ? it.description_th : it.description_en}
+                      {(lang === "th" ? it.description_th : it.description_en) ||
+                        (lang === "th" ? "ยังไม่มีรายละเอียดเมนูนี้" : "No description yet")}
                     </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelected(it)}
+                      className="mt-4 w-full rounded-full border-gold/70 bg-background text-primary hover:bg-gold hover:text-primary font-sans"
+                    >
+                      {lang === "th" ? "ดูรายละเอียด" : "View Details"}
+                    </Button>
                   </div>
                 </Card>
               );
@@ -263,6 +271,58 @@ function MenuPage() {
           </div>
         )}
       </section>
+
+      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          {selected && (
+            <>
+              <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
+                <img
+                  src={imageFor(selected)}
+                  alt={lang === "th" ? selected.name_th : selected.name_en}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="p-6">
+                <DialogHeader className="space-y-1 text-left">
+                  <DialogTitle className="font-display text-2xl text-primary">
+                    {lang === "th" ? selected.name_th : selected.name_en}
+                  </DialogTitle>
+                  <DialogDescription className="font-sans">
+                    {lang === "th" ? selected.name_en : selected.name_th} ·{" "}
+                    {categoryLabel(selected.category, lang)}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="mt-3 font-sans text-xl font-bold tabular-nums text-primary">
+                  ฿{Number(selected.price).toLocaleString()}
+                </div>
+
+                <div className="mt-5 space-y-4 text-sm">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
+                      {lang === "th" ? "รายละเอียด" : "Description"}
+                    </div>
+                    <p className="text-foreground/90 leading-relaxed">
+                      {(lang === "th" ? selected.description_th : selected.description_en) ||
+                        (lang === "th" ? "ยังไม่มีข้อมูล" : "Not available yet")}
+                    </p>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
+                      {lang === "th" ? "ส่วนประกอบหลัก" : "Main Ingredients"}
+                    </div>
+                    <p className="text-foreground/90 leading-relaxed">
+                      {(lang === "th" ? selected.ingredients_th : selected.ingredients_en) ||
+                        (lang === "th" ? "ยังไม่มีข้อมูล" : "Not available yet")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
