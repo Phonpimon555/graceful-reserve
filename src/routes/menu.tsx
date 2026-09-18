@@ -97,11 +97,16 @@ function MenuPage() {
   const { t, lang } = useLang();
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<CatKey>("all");
+  const [selected, setSelected] = useState<Item | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["menu"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("menu_items").select("*").order("sort_order");
+      const { data, error } = await supabase
+        .from("menu_items")
+        .select("*")
+        .eq("is_visible", true)
+        .order("sort_order");
       if (error) throw error;
       return data as Item[];
     },
