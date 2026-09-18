@@ -9,6 +9,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +44,9 @@ type Item = {
   id: string; category: string;
   name_en: string; name_th: string;
   description_en: string | null; description_th: string | null;
+  ingredients_en: string | null; ingredients_th: string | null;
   price: number; image_url: string | null;
+  is_visible: boolean;
 };
 
 /** Map menu names → real photography. Falls back to a category default. */
