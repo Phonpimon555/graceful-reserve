@@ -206,6 +206,10 @@ function MenuPage() {
               </div>
             ))}
           </div>
+        ) : error ? (
+          <div className="text-center py-20 text-destructive">
+            {lang === "th" ? "โหลดเมนูไม่สำเร็จ กรุณาลองใหม่" : "Could not load the menu. Please try again."}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
             {t("menuEmpty")}
