@@ -18,8 +18,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ApiReservationsRouteImport } from './routes/api/reservations'
+import { Route as AdminTablesRouteImport } from './routes/admin/tables'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as ApiTablesAvailableRouteImport } from './routes/api/tables/available'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -67,15 +71,35 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ApiReservationsRoute = ApiReservationsRouteImport.update({
   id: '/api/reservations',
   path: '/api/reservations',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTablesRoute = AdminTablesRouteImport.update({
+  id: '/tables',
+  path: '/tables',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AdminRoute,
 } as any)
 const ApiTablesAvailableRoute = ApiTablesAvailableRouteImport.update({
   id: '/api/tables/available',
@@ -85,7 +109,7 @@ const ApiTablesAvailableRoute = ApiTablesAvailableRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
@@ -94,12 +118,15 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reservation': typeof ReservationRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/tables': typeof AdminTablesRoute
   '/api/reservations': typeof ApiReservationsRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/tables/available': typeof ApiTablesAvailableRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminIndexRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
@@ -108,13 +135,15 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reservation': typeof ReservationRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/tables': typeof AdminTablesRoute
   '/api/reservations': typeof ApiReservationsRoute
   '/api/tables/available': typeof ApiTablesAvailableRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
@@ -123,7 +152,10 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reservation': typeof ReservationRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/tables': typeof AdminTablesRoute
   '/api/reservations': typeof ApiReservationsRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/tables/available': typeof ApiTablesAvailableRoute
 }
 export interface FileRouteTypes {
@@ -139,7 +171,10 @@ export interface FileRouteTypes {
     | '/register'
     | '/reservation'
     | '/sitemap.xml'
+    | '/admin/login'
+    | '/admin/tables'
     | '/api/reservations'
+    | '/admin/'
     | '/api/tables/available'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -153,6 +188,8 @@ export interface FileRouteTypes {
     | '/register'
     | '/reservation'
     | '/sitemap.xml'
+    | '/admin/login'
+    | '/admin/tables'
     | '/api/reservations'
     | '/api/tables/available'
   id:
@@ -167,13 +204,17 @@ export interface FileRouteTypes {
     | '/register'
     | '/reservation'
     | '/sitemap.xml'
+    | '/admin/login'
+    | '/admin/tables'
     | '/api/reservations'
+    | '/admin/'
     | '/api/tables/available'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRouteRoute: typeof AdminRouteRoute
+  AdminRoute: typeof AdminRouteWithChildren
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
@@ -251,6 +292,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -258,12 +306,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/api/reservations': {
       id: '/api/reservations'
       path: '/api/reservations'
       fullPath: '/api/reservations'
       preLoaderRoute: typeof ApiReservationsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/tables': {
+      id: '/admin/tables'
+      path: '/tables'
+      fullPath: '/admin/tables'
+      preLoaderRoute: typeof AdminTablesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/api/tables/available': {
       id: '/api/tables/available'
@@ -275,9 +344,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminLoginRoute: typeof AdminLoginRoute
+  AdminTablesRoute: typeof AdminTablesRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminLoginRoute: AdminLoginRoute,
+  AdminTablesRoute: AdminTablesRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRouteRoute: AdminRouteRoute,
+  AdminRoute: AdminRouteWithChildren,
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
