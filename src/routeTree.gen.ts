@@ -17,12 +17,13 @@ import { Route as MenuRouteImport } from './routes/menu'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HistoryRouteImport } from './routes/history'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ApiReservationsRouteImport } from './routes/api/reservations'
 import { Route as AdminTablesRouteImport } from './routes/admin/tables'
+import { Route as AdminRestaurantRouteImport } from './routes/admin/restaurant'
+import { Route as AdminMenuRouteImport } from './routes/admin/menu'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as ApiTablesAvailableRouteImport } from './routes/api/tables/available'
 
@@ -66,11 +67,6 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminRouteRoute = AdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -84,7 +80,7 @@ const IndexRoute = IndexRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const ApiReservationsRoute = ApiReservationsRouteImport.update({
   id: '/api/reservations',
@@ -94,12 +90,22 @@ const ApiReservationsRoute = ApiReservationsRouteImport.update({
 const AdminTablesRoute = AdminTablesRouteImport.update({
   id: '/tables',
   path: '/tables',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminRestaurantRoute = AdminRestaurantRouteImport.update({
+  id: '/restaurant',
+  path: '/restaurant',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminMenuRoute = AdminMenuRouteImport.update({
+  id: '/menu',
+  path: '/menu',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => AdminRoute,
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const ApiTablesAvailableRoute = ApiTablesAvailableRouteImport.update({
   id: '/api/tables/available',
@@ -109,7 +115,7 @@ const ApiTablesAvailableRoute = ApiTablesAvailableRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
+  '/admin': typeof AdminRouteRouteWithChildren
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
@@ -119,6 +125,8 @@ export interface FileRoutesByFullPath {
   '/reservation': typeof ReservationRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/menu': typeof AdminMenuRoute
+  '/admin/restaurant': typeof AdminRestaurantRoute
   '/admin/tables': typeof AdminTablesRoute
   '/api/reservations': typeof ApiReservationsRoute
   '/admin/': typeof AdminIndexRoute
@@ -126,7 +134,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminIndexRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
@@ -136,14 +143,17 @@ export interface FileRoutesByTo {
   '/reservation': typeof ReservationRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/menu': typeof AdminMenuRoute
+  '/admin/restaurant': typeof AdminRestaurantRoute
   '/admin/tables': typeof AdminTablesRoute
   '/api/reservations': typeof ApiReservationsRoute
+  '/admin': typeof AdminIndexRoute
   '/api/tables/available': typeof ApiTablesAvailableRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
+  '/admin': typeof AdminRouteRouteWithChildren
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
@@ -153,6 +163,8 @@ export interface FileRoutesById {
   '/reservation': typeof ReservationRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/menu': typeof AdminMenuRoute
+  '/admin/restaurant': typeof AdminRestaurantRoute
   '/admin/tables': typeof AdminTablesRoute
   '/api/reservations': typeof ApiReservationsRoute
   '/admin/': typeof AdminIndexRoute
@@ -172,6 +184,8 @@ export interface FileRouteTypes {
     | '/reservation'
     | '/sitemap.xml'
     | '/admin/login'
+    | '/admin/menu'
+    | '/admin/restaurant'
     | '/admin/tables'
     | '/api/reservations'
     | '/admin/'
@@ -179,7 +193,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/history'
     | '/home'
     | '/login'
@@ -189,8 +202,11 @@ export interface FileRouteTypes {
     | '/reservation'
     | '/sitemap.xml'
     | '/admin/login'
+    | '/admin/menu'
+    | '/admin/restaurant'
     | '/admin/tables'
     | '/api/reservations'
+    | '/admin'
     | '/api/tables/available'
   id:
     | '__root__'
@@ -205,6 +221,8 @@ export interface FileRouteTypes {
     | '/reservation'
     | '/sitemap.xml'
     | '/admin/login'
+    | '/admin/menu'
+    | '/admin/restaurant'
     | '/admin/tables'
     | '/api/reservations'
     | '/admin/'
@@ -213,8 +231,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRouteRoute: typeof AdminRouteRoute
-  AdminRoute: typeof AdminRouteWithChildren
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
@@ -289,13 +306,6 @@ declare module '@tanstack/react-router' {
       id: '/admin'
       path: '/admin'
       fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -311,7 +321,7 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/api/reservations': {
       id: '/api/reservations'
@@ -325,14 +335,28 @@ declare module '@tanstack/react-router' {
       path: '/tables'
       fullPath: '/admin/tables'
       preLoaderRoute: typeof AdminTablesRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/restaurant': {
+      id: '/admin/restaurant'
+      path: '/restaurant'
+      fullPath: '/admin/restaurant'
+      preLoaderRoute: typeof AdminRestaurantRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/menu': {
+      id: '/admin/menu'
+      path: '/menu'
+      fullPath: '/admin/menu'
+      preLoaderRoute: typeof AdminMenuRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/login': {
       id: '/admin/login'
       path: '/login'
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminRouteRoute
     }
     '/api/tables/available': {
       id: '/api/tables/available'
@@ -344,24 +368,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AdminRouteChildren {
+interface AdminRouteRouteChildren {
   AdminLoginRoute: typeof AdminLoginRoute
+  AdminMenuRoute: typeof AdminMenuRoute
+  AdminRestaurantRoute: typeof AdminRestaurantRoute
   AdminTablesRoute: typeof AdminTablesRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
-const AdminRouteChildren: AdminRouteChildren = {
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminLoginRoute: AdminLoginRoute,
+  AdminMenuRoute: AdminMenuRoute,
+  AdminRestaurantRoute: AdminRestaurantRoute,
   AdminTablesRoute: AdminTablesRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRouteRoute: AdminRouteRoute,
-  AdminRoute: AdminRouteWithChildren,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
