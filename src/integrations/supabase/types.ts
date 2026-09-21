@@ -88,6 +88,7 @@ export type Database = {
       }
       reservations: {
         Row: {
+          contact_email: string | null
           created_at: string
           customer_name: string
           id: string
@@ -101,6 +102,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          contact_email?: string | null
           created_at?: string
           customer_name: string
           id?: string
@@ -114,6 +116,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          contact_email?: string | null
           created_at?: string
           customer_name?: string
           id?: string
@@ -275,12 +278,32 @@ export type Database = {
           time_slot: string
         }[]
       }
+      cancel_reservation_by_contact: {
+        Args: { _email: string; _id: string; _phone: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      reservations_by_contact: {
+        Args: { _email: string; _phone: string }
+        Returns: {
+          contact_email: string
+          created_at: string
+          customer_name: string
+          id: string
+          party_size: number
+          phone: string
+          reservation_date: string
+          status: Database["public"]["Enums"]["reservation_status"]
+          table_id: string
+          time_slot: string
+          updated_at: string
+        }[]
       }
     }
     Enums: {

@@ -15,11 +15,12 @@ export type Reservation = {
   table_id: string;
   customer_name: string;
   phone: string;
+  contact_email?: string | null;
   reservation_date: string;
   time_slot: string;
   created_at: string;
   updated_at: string;
-  user_id: string | null;
+  user_id?: string | null;
   status: ReservationStatus;
   party_size: number;
 };
@@ -72,10 +73,36 @@ export async function fetchMyReservations() {
   return (data ?? []) as Reservation[];
 }
 
+/**
+ * Member history / cancel — scoped by the contact details of the signed-in
+ * mock account (phone or email). Swap for user-scoped queries when the
+ * membership system moves to a real backend.
+ */
+export async function fetchReservationsByContact(phone: string, email: string) {
+  const { data, error } = await supabase.rpc("reservations_by_contact", {
+    _phone: phone ?? "",
+    _email: email ?? "",
+  });
+  if (error) throw error;
+  return (data ?? []) as Reservation[];
+}
+
+export async function cancelReservationByContact(id: string, phone: string, email: string) {
+  const { data, error } = await supabase.rpc("cancel_reservation_by_contact", {
+    _id: id,
+    _phone: phone ?? "",
+    _email: email ?? "",
+  });
+  if (error) return { ok: false as const, reason: error.message };
+  if (data !== true) return { ok: false as const, reason: "not_found" as const };
+  return { ok: true as const };
+}
+
 export async function createReservation(input: {
   table_id: string;
   customer_name: string;
   phone: string;
+  contact_email?: string | null;
   reservation_date: string;
   time_slot: string;
   party_size: number;
