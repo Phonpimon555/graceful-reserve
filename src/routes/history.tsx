@@ -16,7 +16,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useLang, zoneLabel, type Lang } from "@/lib/i18n";
 import {
-  fetchMyReservations, cancelMyReservation, fetchTables,
+  fetchReservationsByContact, cancelReservationByContact, fetchTables,
   type Reservation, type ReservationStatus,
 } from "@/lib/reservations";
 import { cn } from "@/lib/utils";
@@ -57,7 +57,7 @@ function HistoryPage() {
   const [pendingCancel, setPendingCancel] = useState<Reservation | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const myQ = useQuery({ queryKey: ["myReservations"], queryFn: fetchMyReservations, enabled: !!user });
+  const myQ = useQuery({ queryKey: ["myReservations", user?.id], queryFn: () => fetchReservationsByContact(user!.phone, user!.email), enabled: !!user });
   const tablesQ = useQuery({ queryKey: ["tables"], queryFn: fetchTables, enabled: !!user });
 
   const zoneOf = (tableId: string) => tablesQ.data?.find((t) => t.id === tableId)?.zone;
@@ -66,7 +66,7 @@ function HistoryPage() {
   const doCancel = async () => {
     if (!pendingCancel) return;
     setBusy(true);
-    const r = await cancelMyReservation(pendingCancel.id);
+    const r = await cancelReservationByContact(pendingCancel.id, user?.phone ?? "", user?.email ?? "");
     setBusy(false);
     if (r.ok) {
       toast.success(lang === "th" ? "ยกเลิกการจองแล้ว" : "Reservation cancelled");

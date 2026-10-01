@@ -31,8 +31,8 @@ function AdminLoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user && isAdmin) navigate({ to: "/admin", replace: true });
-  }, [loading, user, isAdmin, navigate]);
+    if (!loading && isAdmin) navigate({ to: "/admin", replace: true });
+  }, [loading, isAdmin, navigate]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
