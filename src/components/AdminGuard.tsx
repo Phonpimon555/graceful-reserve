@@ -20,7 +20,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!isAdmin) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center px-4">
         <Card className="max-w-md w-full p-8 text-center border-border/60 shadow-soft">

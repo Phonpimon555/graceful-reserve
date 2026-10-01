@@ -195,6 +195,10 @@ function BookingSection() {
   const today = useMemo(() => new Date(), []);
   const [date, setDate] = useState<Date | undefined>(today);
   const [slot, setSlot] = useState<string | null>(null);
+  const bkkNow = useBangkokNow();
+  useEffect(() => {
+    if (date && slot && !isSlotBookable(toDateKey(date), slot, bkkNow)) { setSlot(null); setSelectedTable(null); }
+  }, [bkkNow, date, slot]);
   const [zoneFilter, setZoneFilter] = useState<Zone | "all">("all");
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
