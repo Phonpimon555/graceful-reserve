@@ -22,6 +22,7 @@ function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent] = useState(false);
   const { signUp } = useAuth();
@@ -30,8 +31,9 @@ function RegisterPage() {
     e.preventDefault();
     if (fullName.trim().length < 2) { toast.error("กรุณากรอกชื่อ-นามสกุล"); return; }
     if (phone.replace(/\D/g, "").length < 9) { toast.error("เบอร์โทรไม่ถูกต้อง"); return; }
-    if (!email.includes("@")) { toast.error("กรุณากรอกอีเมลให้ถูกต้อง"); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { toast.error("กรุณากรอกอีเมลให้ถูกต้อง"); return; }
     if (password.length < 6) { toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"); return; }
+    if (password !== confirm) { toast.error("รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน"); return; }
 
     setBusy(true);
     const r = await signUp({ full_name: fullName, phone, email, password });
@@ -116,6 +118,16 @@ function RegisterPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className={inputCls}
+                  placeholder="••••••••"
+                />
+              </Field>
+              <Field label="ยืนยันรหัสผ่าน · Confirm Password">
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
                   className={inputCls}
                   placeholder="••••••••"
                 />
