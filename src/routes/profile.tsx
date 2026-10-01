@@ -24,7 +24,7 @@ export const Route = createFileRoute("/profile")({
 
 function ProfilePage() {
   const { lang } = useLang();
-  const { user, profile, loading, refreshProfile } = useAuth();
+  const { user, profile, loading, updateProfile } = useAuth();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,19 +45,9 @@ function ProfilePage() {
       return;
     }
     setBusy(true);
-    const { error } = await supabase
-      .from("profiles")
-      .upsert({
-        id: user.id,
-        full_name: fullName.trim(),
-        phone: phone.trim(),
-        email: user.email ?? null,
-      })
-      .select()
-      .single();
+    const r = await updateProfile({ full_name: fullName, phone });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    await refreshProfile();
+    if (!r.ok) { toast.error(lang === "th" ? "บันทึกไม่สำเร็จ" : "Save failed"); return; }
     toast.success(lang === "th" ? "บันทึกข้อมูลแล้ว" : "Profile saved");
   };
 

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import heroImg from "@/assets/hero-riverside.jpg";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -21,22 +22,17 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const { user, signIn } = useAuth();
+  useEffect(() => { if (user) navigate({ to: "/home" }); }, [user, navigate]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.includes("@")) { toast.error("กรุณากรอกอีเมลให้ถูกต้อง"); return; }
     if (password.length < 6) { toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"); return; }
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const r = await signIn(email, password);
     setBusy(false);
-    if (error) {
-      toast.error(
-        error.message.toLowerCase().includes("invalid")
-          ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
-          : error.message,
-      );
-      return;
-    }
+    if (!r.ok) { toast.error("อีเมลหรือรหัสผ่านไม่ถูกต้อง · Invalid email or password"); return; }
     toast.success("เข้าสู่ระบบสำเร็จ");
     navigate({ to: "/home" });
   };

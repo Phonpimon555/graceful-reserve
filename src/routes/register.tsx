@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import heroImg from "@/assets/hero-riverside.jpg";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -23,7 +23,8 @@ function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [sent] = useState(false);
+  const { signUp } = useAuth();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,31 +34,14 @@ function RegisterPage() {
     if (password.length < 6) { toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"); return; }
 
     setBusy(true);
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        emailRedirectTo: window.location.origin + "/login",
-        data: { full_name: fullName.trim(), phone: phone.trim() },
-      },
-    });
+    const r = await signUp({ full_name: fullName, phone, email, password });
     setBusy(false);
-
-    if (error) {
-      toast.error(
-        error.message.toLowerCase().includes("already")
-          ? "อีเมลนี้ถูกใช้งานแล้ว"
-          : error.message,
-      );
+    if (!r.ok) {
+      toast.error(r.error === "email_taken" ? "อีเมลนี้ถูกใช้งานแล้ว · Email already registered" : "เกิดข้อผิดพลาด กรุณาลองใหม่");
       return;
     }
-
-    if (data.session) {
-      toast.success("สมัครสมาชิกสำเร็จ");
-      navigate({ to: "/home" });
-      return;
-    }
-    setSent(true);
+    toast.success("สมัครสมาชิกสำเร็จ · Registration successful");
+    navigate({ to: "/login" });
   };
 
   return (

@@ -19,10 +19,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
+import { isSlotBookable, isPastDateKey, toDateKey, useBangkokNow } from "@/lib/booking-time";
 import { TIME_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
   fetchActiveTables, fetchReservationsForDate, createReservation,
-  fetchMyReservations, cancelMyReservation,
+  fetchReservationsByContact, cancelReservationByContact,
   type TableRow, type Reservation,
 } from "@/lib/reservations";
 import { useAuth } from "@/hooks/useAuth";
@@ -291,7 +292,7 @@ function BookingSection() {
                 mode="single"
                 selected={date}
                 onSelect={(d) => { setDate(d); setSlot(null); setSelectedTable(null); }}
-                disabled={(d) => d < new Date(new Date().setHours(0,0,0,0))}
+                disabled={(d) => isPastDateKey(toDateKey(d), bkkNow)}
                 initialFocus
                 className="p-3 pointer-events-auto"
               />
@@ -307,10 +308,11 @@ function BookingSection() {
               const count = slotCounts[s] ?? 0;
               const full = count >= tables.length && tables.length > 0;
               const active = slot === s;
+              const passed = !!date && !isSlotBookable(toDateKey(date), s, bkkNow);
               return (
                 <button
                   key={s}
-                  disabled={full || !date}
+                  disabled={full || !date || passed}
                   onClick={() => { setSlot(s); setSelectedTable(null); }}
                   className={cn(
                     "relative rounded-xl border px-3 py-3 text-sm font-medium transition-all",
@@ -778,12 +780,14 @@ function BookingDialog({
     if (!table || !slot || !date) return;
     if (name.trim().length < 2) { toast.error(lang === "th" ? "กรุณากรอกชื่อ" : "Please enter your name"); return; }
     if (phone.replace(/\D/g, "").length < 9) { toast.error(lang === "th" ? "เบอร์โทรไม่ถูกต้อง" : "Invalid phone number"); return; }
+    if (!isSlotBookable(date, slot)) { toast.error(lang === "th" ? "ช่วงเวลานี้ไม่สามารถจองได้ กรุณาเลือกเวลาใหม่" : "This time slot is no longer available. Please choose a new time."); return; }
     setBusy(true);
     const res = await createReservation({
       table_id: table.id, customer_name: name.trim(), phone: phone.trim(),
       reservation_date: date, time_slot: slot,
       party_size: partySize,
-      user_id: user?.id ?? null,
+      contact_email: user?.email ?? null,
+      user_id: null,
     });
     setBusy(false);
     if (res.ok) { toast.success(t("bookingSuccess")); onSuccess(); }
@@ -848,8 +852,8 @@ function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const [pendingCancel, setPendingCancel] = useState<Reservation | null>(null);
 
   const myQ = useQuery({
-    queryKey: ["myReservations"],
-    queryFn: fetchMyReservations,
+    queryKey: ["myReservations", user?.id],
+    queryFn: () => fetchReservationsByContact(user!.phone, user!.email),
     enabled: open && !!user,
   });
 
@@ -860,7 +864,7 @@ function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const doCancel = async () => {
     if (!pendingCancel) return;
     setBusy(true);
-    const r = await cancelMyReservation(pendingCancel.id);
+    const r = await cancelReservationByContact(pendingCancel.id, user?.phone ?? "", user?.email ?? "");
     setBusy(false);
     if (r.ok) {
       toast.success(t("cancelSuccess"));
