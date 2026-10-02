@@ -2,7 +2,8 @@ import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import heroImg from "@/assets/hero-riverside.jpg";
-import { useAuth } from "@/hooks/useAuth";
+const REGISTER_API_URL =
+  "https://script.google.com/macros/s/AKfycbxubbiKANW6WNhifrw00j2CW_lQ3ZtIxYLqNFVOn4AT15b8J7xsjQR7ewkreBqKPUR9gg/exec";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -25,7 +26,6 @@ function RegisterPage() {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent] = useState(false);
-  const { signUp } = useAuth();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
