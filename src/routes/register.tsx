@@ -36,14 +36,25 @@ function RegisterPage() {
     if (password !== confirm) { toast.error("รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน"); return; }
 
     setBusy(true);
-    const r = await signUp({ full_name: fullName, phone, email, password });
-    setBusy(false);
-    if (!r.ok) {
-      toast.error(r.error === "email_taken" ? "อีเมลนี้ถูกใช้งานแล้ว · Email already registered" : "เกิดข้อผิดพลาด กรุณาลองใหม่");
-      return;
+    try {
+      const res = await fetch(REGISTER_API_URL, {
+        method: "POST",
+        // text/plain keeps this a "simple request" so Apps Script (no CORS headers) accepts it
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ name: fullName.trim(), phone: phone.trim(), email: email.trim(), password }),
+      });
+      const data = (await res.json()) as { status?: string; message?: string };
+      if (data.status === "success") {
+        toast.success(data.message || "สมัครสมาชิกสำเร็จ · Registration successful");
+        navigate({ to: "/login" });
+      } else {
+        toast.error(data.message || "เกิดข้อผิดพลาด กรุณาลองใหม่");
+      }
+    } catch {
+      toast.error("ไม่สามารถเชื่อมต่อระบบสมัครสมาชิกได้ กรุณาลองใหม่");
+    } finally {
+      setBusy(false);
     }
-    toast.success("สมัครสมาชิกสำเร็จ · Registration successful");
-    navigate({ to: "/login" });
   };
 
   return (
