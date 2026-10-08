@@ -27,6 +27,7 @@ import {
   type TableRow, type Reservation,
 } from "@/lib/reservations";
 import { useAuth } from "@/hooks/useAuth";
+import { GAS_API_URL } from "@/lib/auth/gasAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 import heroImg from "@/assets/hero-riverside.jpg";
@@ -770,7 +771,7 @@ function BookingDialog({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ id: string; name: string; phone: string } | null>(null);
+  const [done, setDone] = useState<{ id: string; name: string; phone: string; table: string; zone: string; people: number; status: string; date: string; time: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -782,30 +783,40 @@ function BookingDialog({
   }, [open, profile]);
 
   const submit = async () => {
-    if (!table || !slot || !date) return;
-    if (name.trim().length < 2) { toast.error(lang === "th" ? "กรุณากรอกชื่อ" : "Please enter your name"); return; }
-    if (phone.replace(/\D/g, "").length < 9) { toast.error(lang === "th" ? "เบอร์โทรไม่ถูกต้อง" : "Invalid phone number"); return; }
+    if (!table || !slot || !date || busy) return;
+    if (!user) { toast.error(lang === "th" ? "กรุณาเข้าสู่ระบบก่อนจองโต๊ะ" : "Please sign in to book a table"); return; }
     if (!isSlotBookable(date, slot)) { toast.error(lang === "th" ? "ช่วงเวลานี้ไม่สามารถจองได้ กรุณาเลือกเวลาใหม่" : "This time slot is no longer available. Please choose a new time."); return; }
     setBusy(true);
-    const res = await createReservation({
-      table_id: table.id, customer_name: name.trim(), phone: phone.trim(),
-      reservation_date: date, time_slot: slot,
-      party_size: partySize,
-      contact_email: user?.email ?? null,
-      user_id: null,
-    });
-    setBusy(false);
-    if (res.ok) { setDone({ id: res.reservation.id, name: name.trim(), phone: phone.trim() }); return; }
-    if (res.reason === "taken") { toast.error(t("bookingFail")); return; }
-    // Temporary mockup fallback: keep the flow working if saving fails.
-    const mockId = `MOCK-${Date.now().toString(36).toUpperCase()}`;
     try {
-      const key = "rk.mock.reservations";
-      const list = JSON.parse(window.localStorage.getItem(key) ?? "[]");
-      list.push({ id: mockId, table_id: table.id, customer_name: name.trim(), phone: phone.trim(), reservation_date: date, time_slot: slot, party_size: partySize, status: "confirmed", created_at: new Date().toISOString() });
-      window.localStorage.setItem(key, JSON.stringify(list));
-    } catch { /* ignore */ }
-    setDone({ id: mockId, name: name.trim(), phone: phone.trim() });
+      const resp = await fetch(GAS_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "booking", member_id: user.id, date, time: slot,
+          people: partySize, zone: zoneLabel(table.zone, "th"),
+        }),
+      });
+      const data = await resp.json();
+      if (data?.status === "success" && data.booking_id) {
+        setDone({
+          id: String(data.booking_id), name: String(data.name ?? name), phone: String(data.phone ?? phone),
+          table: String(data.table_id ?? table.id), zone: String(data.zone ?? zoneLabel(table.zone, lang)),
+          people: Number(data.people ?? partySize), status: String(data.booking_status ?? "Confirmed"),
+          date: String(data.date ?? date), time: String(data.time ?? slot),
+        });
+        return;
+      }
+      if (data?.status === "unavailable") {
+        toast.error(data.message || (lang === "th" ? "ไม่มีโต๊ะว่างในช่วงเวลาที่เลือก กรุณาเลือกเวลาหรือโซนใหม่" : "No tables available at this time. Please choose another time or zone."));
+        onClose();
+        return;
+      }
+      toast.error(data?.message || (lang === "th" ? "จองไม่สำเร็จ กรุณาลองใหม่" : "Booking failed. Please try again."));
+    } catch {
+      toast.error(lang === "th" ? "ไม่สามารถเชื่อมต่อระบบจองได้ กรุณาลองใหม่" : "Could not reach the booking service. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const finish = () => { setDone(null); onSuccess(); };
@@ -822,14 +833,15 @@ function BookingDialog({
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-xl border bg-muted/30 p-4 text-left text-sm space-y-1.5">
-            <SummaryRow label={lang === "th" ? "รหัสการจอง" : "Booking ID"} value={done.id.slice(0, 8).toUpperCase()} />
+            <SummaryRow label={lang === "th" ? "รหัสการจอง" : "Booking ID"} value={done.id} />
             <SummaryRow label={t("customerName")} value={done.name} />
             <SummaryRow label={t("customerPhone")} value={done.phone} />
-            <SummaryRow label={t("step1")} value={format(new Date(date), "d MMM yyyy")} />
-            <SummaryRow label={t("step2")} value={slot ?? "—"} />
-            <SummaryRow label={lang === "th" ? "จำนวนคน" : "Guests"} value={`${partySize}`} />
-            <SummaryRow label={lang === "th" ? "โซน" : "Zone"} value={zoneLabel(table.zone, lang)} />
-            <SummaryRow label={t("table")} value={table.id} />
+            <SummaryRow label={t("step1")} value={done.date} />
+            <SummaryRow label={t("step2")} value={done.time} />
+            <SummaryRow label={lang === "th" ? "จำนวนคน" : "Guests"} value={`${done.people}`} />
+            <SummaryRow label={lang === "th" ? "โซน" : "Zone"} value={done.zone} />
+            <SummaryRow label={t("table")} value={done.table} />
+            <SummaryRow label={lang === "th" ? "สถานะ" : "Status"} value={done.status} />
           </div>
           <DialogFooter className="sm:justify-center">
             <Button onClick={finish} className="bg-gradient-gold text-primary hover:opacity-90 border-0 shadow-gold">
@@ -865,11 +877,11 @@ function BookingDialog({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="name">{t("customerName")}</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+            <Input id="name" value={name} readOnly maxLength={80} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="phone">{t("customerPhone")}</Label>
-            <Input id="phone" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} placeholder="081-234-5678" />
+            <Input id="phone" inputMode="tel" value={phone} readOnly maxLength={20} placeholder="081-234-5678" />
           </div>
         </div>
 
