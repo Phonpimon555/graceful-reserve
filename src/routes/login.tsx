@@ -29,11 +29,12 @@ function Login() {
     e.preventDefault();
     if (!email.includes("@")) { toast.error("กรุณากรอกอีเมลให้ถูกต้อง"); return; }
     if (password.length < 6) { toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"); return; }
+    if (busy) return;
     setBusy(true);
     const r = await signIn(email, password);
     setBusy(false);
-    if (!r.ok) { toast.error("อีเมลหรือรหัสผ่านไม่ถูกต้อง · Invalid email or password"); return; }
-    toast.success("เข้าสู่ระบบสำเร็จ");
+    if (!r.ok) { toast.error(r.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง"); return; }
+    toast.success(r.message || "เข้าสู่ระบบสำเร็จ");
     navigate({ to: "/home" });
   };
 
