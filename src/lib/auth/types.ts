@@ -12,8 +12,8 @@ export type AuthUser = {
 };
 
 export type AuthResult =
-  | { ok: true; user: AuthUser }
-  | { ok: false; error: "email_taken" | "invalid_credentials" | "not_signed_in" | "unknown" };
+  | { ok: true; user: AuthUser; message?: string }
+  | { ok: false; error: "email_taken" | "invalid_credentials" | "not_signed_in" | "unknown"; message?: string };
 
 export type SignUpInput = {
   full_name: string;
