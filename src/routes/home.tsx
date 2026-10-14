@@ -27,7 +27,7 @@ import {
   type TableRow, type Reservation,
 } from "@/lib/reservations";
 import { useAuth } from "@/hooks/useAuth";
-import { GAS_API_URL } from "@/lib/auth/gasAuth";
+import { checkAvailability, createBooking, safePeople, type AvailabilityResult } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
 
 import heroImg from "@/assets/hero-riverside.jpg";
@@ -782,38 +782,48 @@ function BookingDialog({
     }
   }, [open, profile]);
 
+  // Ask the backend which table it will assign, so the user can review it before confirming.
+  const [assigned, setAssigned] = useState<AvailabilityResult | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [availErr, setAvailErr] = useState<string | null>(null);
+  const query = table && slot && date
+    ? { date, time: slot, people: partySize, zone: zoneLabel(table.zone, "th") }
+    : null;
+  useEffect(() => {
+    if (!open || !query) { setAssigned(null); setAvailErr(null); return; }
+    let alive = true;
+    setChecking(true); setAvailErr(null); setAssigned(null);
+    void checkAvailability(query).then((r) => {
+      if (!alive) return;
+      setChecking(false);
+      if (r.ok) setAssigned(r.data); else setAvailErr(r.message);
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, date, slot, partySize, table?.zone]);
+
   const submit = async () => {
-    if (!table || !slot || !date || busy) return;
+    if (!table || !slot || !date || busy || !query) return;
     if (!user) { toast.error(lang === "th" ? "กรุณาเข้าสู่ระบบก่อนจองโต๊ะ" : "Please sign in to book a table"); return; }
-    if (!isSlotBookable(date, slot)) { toast.error(lang === "th" ? "ช่วงเวลานี้ไม่สามารถจองได้ กรุณาเลือกเวลาใหม่" : "This time slot is no longer available. Please choose a new time."); return; }
+    if (!isSlotBookable(date, slot)) { toast.error("ช่วงเวลานี้ไม่สามารถจองได้ กรุณาเลือกเวลาใหม่"); return; }
     setBusy(true);
     try {
-      const resp = await fetch(GAS_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "booking", member_id: user.id, date, time: slot,
-          people: partySize, zone: zoneLabel(table.zone, "th"),
-        }),
+      // Re-check availability right before saving.
+      const recheck = await checkAvailability(query);
+      if (!recheck.ok) { setAvailErr(recheck.message); toast.error(recheck.message); return; }
+      setAssigned(recheck.data);
+      const r = await createBooking(user.id, query);
+      if (!r.ok || !r.data.booking_id) {
+        toast.error(r.ok ? "จองไม่สำเร็จ กรุณาลองใหม่" : r.message);
+        return;
+      }
+      const d = r.data;
+      setDone({
+        id: String(d.booking_id), name: String(d.name ?? name), phone: String(d.phone ?? phone),
+        table: String(d.table_id ?? recheck.data.table_id), zone: String(d.zone ?? recheck.data.zone),
+        people: safePeople(d.people) ?? partySize, status: String(d.booking_status ?? "Confirmed"),
+        date: String(d.date ?? date), time: String(d.time ?? slot),
       });
-      const data = await resp.json();
-      if (data?.status === "success" && data.booking_id) {
-        setDone({
-          id: String(data.booking_id), name: String(data.name ?? name), phone: String(data.phone ?? phone),
-          table: String(data.table_id ?? table.id), zone: String(data.zone ?? zoneLabel(table.zone, lang)),
-          people: Number(data.people ?? partySize), status: String(data.booking_status ?? "Confirmed"),
-          date: String(data.date ?? date), time: String(data.time ?? slot),
-        });
-        return;
-      }
-      if (data?.status === "unavailable") {
-        toast.error(data.message || (lang === "th" ? "ไม่มีโต๊ะว่างในช่วงเวลาที่เลือก กรุณาเลือกเวลาหรือโซนใหม่" : "No tables available at this time. Please choose another time or zone."));
-        onClose();
-        return;
-      }
-      toast.error(data?.message || (lang === "th" ? "จองไม่สำเร็จ กรุณาลองใหม่" : "Booking failed. Please try again."));
-    } catch {
-      toast.error(lang === "th" ? "ไม่สามารถเชื่อมต่อระบบจองได้ กรุณาลองใหม่" : "Could not reach the booking service. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -865,14 +875,15 @@ function BookingDialog({
 
         {table && (
           <div className="rounded-xl border bg-muted/30 p-4 grid grid-cols-3 gap-3 text-center">
-            <DetailCell label={t("table")} value={table.id} />
+            <DetailCell label={t("table")} value={checking ? "..." : assigned?.table_id ?? "—"} />
             <DetailCell label={t("step1")} value={date ? format(new Date(date), "MMM d") : "—"} />
             <DetailCell label={t("step2")} value={slot ?? "—"} small />
             <DetailCell label={lang === "th" ? "จำนวนคน" : "Guests"} value={`${partySize}`} />
-            <DetailCell label={lang === "th" ? "โซน" : "Zone"} value={zoneLabel(table.zone, lang)} small />
-            <DetailCell label={lang === "th" ? "ความจุ" : "Seats"} value={`${table.capacity}`} />
+            <DetailCell label={lang === "th" ? "โซน" : "Zone"} value={assigned?.zone ?? zoneLabel(table.zone, lang)} small />
+            <DetailCell label={lang === "th" ? "ความจุ" : "Seats"} value={assigned ? `${assigned.capacity}` : "—"} />
           </div>
         )}
+        {availErr && <p className="text-sm text-destructive">{availErr}</p>}
 
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -887,7 +898,7 @@ function BookingDialog({
 
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onClose} disabled={busy}>{t("cancel")}</Button>
-          <Button onClick={submit} disabled={busy} className="bg-gradient-gold text-primary hover:opacity-90 border-0 shadow-gold">
+          <Button onClick={submit} disabled={busy || checking || !assigned} className="bg-gradient-gold text-primary hover:opacity-90 border-0 shadow-gold">
             {busy ? "..." : t("confirm")}
           </Button>
         </DialogFooter>
