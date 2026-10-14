@@ -875,14 +875,15 @@ function BookingDialog({
 
         {table && (
           <div className="rounded-xl border bg-muted/30 p-4 grid grid-cols-3 gap-3 text-center">
-            <DetailCell label={t("table")} value={table.id} />
+            <DetailCell label={t("table")} value={checking ? "..." : assigned?.table_id ?? "—"} />
             <DetailCell label={t("step1")} value={date ? format(new Date(date), "MMM d") : "—"} />
             <DetailCell label={t("step2")} value={slot ?? "—"} small />
             <DetailCell label={lang === "th" ? "จำนวนคน" : "Guests"} value={`${partySize}`} />
-            <DetailCell label={lang === "th" ? "โซน" : "Zone"} value={zoneLabel(table.zone, lang)} small />
-            <DetailCell label={lang === "th" ? "ความจุ" : "Seats"} value={`${table.capacity}`} />
+            <DetailCell label={lang === "th" ? "โซน" : "Zone"} value={assigned?.zone ?? zoneLabel(table.zone, lang)} small />
+            <DetailCell label={lang === "th" ? "ความจุ" : "Seats"} value={assigned ? `${assigned.capacity}` : "—"} />
           </div>
         )}
+        {availErr && <p className="text-sm text-destructive">{availErr}</p>}
 
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -897,7 +898,7 @@ function BookingDialog({
 
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onClose} disabled={busy}>{t("cancel")}</Button>
-          <Button onClick={submit} disabled={busy} className="bg-gradient-gold text-primary hover:opacity-90 border-0 shadow-gold">
+          <Button onClick={submit} disabled={busy || checking || !assigned} className="bg-gradient-gold text-primary hover:opacity-90 border-0 shadow-gold">
             {busy ? "..." : t("confirm")}
           </Button>
         </DialogFooter>
