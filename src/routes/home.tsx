@@ -27,7 +27,7 @@ import {
   type TableRow, type Reservation,
 } from "@/lib/reservations";
 import { useAuth } from "@/hooks/useAuth";
-import { checkAvailability, createBooking, safePeople, type AvailabilityResult } from "@/lib/gasBooking";
+import { checkAvailability, createBooking, fetchHistory, safePeople, sheetDate, sheetZone, type AvailabilityResult } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
 
 import heroImg from "@/assets/hero-riverside.jpg";
