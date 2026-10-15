@@ -163,7 +163,7 @@ function HistoryPage() {
                   <div className="mt-1 font-sans text-sm text-muted-foreground tabular-nums">
                     {fmt(r.reservation_date, "EEE, d MMM yyyy")} · {r.time_slot} · {r.party_size ?? "—"}{" "}
                     {lang === "th" ? "ท่าน" : "guests"}
-                    {r.zone ? ` · ${zoneLabel(r.zone, lang)}` : ""}
+                    {r.zone ? ` · ${(/^[A-Za-z]/.test(r.zone) ? zoneLabel(r.zone, lang) : r.zone)}` : ""}
                   </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setDetail(r)}>
@@ -201,7 +201,7 @@ function HistoryPage() {
               />
               <Row
                 label={lang === "th" ? "โซน" : "Zone"}
-                value={detail.zone ? zoneLabel(detail.zone, lang) : "—"}
+                value={detail.zone ? (/^[A-Za-z]/.test(detail.zone) ? zoneLabel(detail.zone, lang) : detail.zone) : "—"}
               />
               <Row label={lang === "th" ? "วันที่สร้าง" : "Created"} value={fmt(detail.created_at, "d MMM yyyy HH:mm")} />
               <Row label={lang === "th" ? "แก้ไขล่าสุด" : "Last updated"} value={fmt(detail.updated_at, "d MMM yyyy HH:mm")} />
