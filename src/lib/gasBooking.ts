@@ -27,6 +27,13 @@ async function call<T>(body: Record<string, unknown>, fallback: string): Promise
   }
 }
 
+/** Zone names exactly as written in the Data_Table sheet's "zone" column. */
+export function sheetZone(z: string): string {
+  if (z === "Riverside") return "ริมบึง";
+  if (z === "AirConditioned") return "สวน";
+  return "VIP";
+}
+
 export type AvailabilityResult = {
   table_id: string; zone: string; capacity: number; date: string; time: string; people: number; message?: string;
 };

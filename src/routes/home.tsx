@@ -27,7 +27,7 @@ import {
   type TableRow, type Reservation,
 } from "@/lib/reservations";
 import { useAuth } from "@/hooks/useAuth";
-import { checkAvailability, createBooking, safePeople, type AvailabilityResult } from "@/lib/gasBooking";
+import { checkAvailability, createBooking, fetchHistory, safePeople, sheetDate, sheetZone, type AvailabilityResult } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
 
 import heroImg from "@/assets/hero-riverside.jpg";
@@ -787,7 +787,7 @@ function BookingDialog({
   const [checking, setChecking] = useState(false);
   const [availErr, setAvailErr] = useState<string | null>(null);
   const query = table && slot && date
-    ? { date, time: slot, people: partySize, zone: zoneLabel(table.zone, "th") }
+    ? { date, time: slot, people: partySize, zone: sheetZone(table.zone) }
     : null;
   useEffect(() => {
     if (!open || !query) { setAssigned(null); setAvailErr(null); return; }
@@ -808,6 +808,15 @@ function BookingDialog({
     if (!isSlotBookable(date, slot)) { toast.error("ช่วงเวลานี้ไม่สามารถจองได้ กรุณาเลือกเวลาใหม่"); return; }
     setBusy(true);
     try {
+      // Block a second active booking by the same member for the same date + time.
+      let mine: Awaited<ReturnType<typeof fetchHistory>>;
+      try { mine = await fetchHistory(user.id); } catch (e) { toast.error((e as Error).message); return; }
+      const dup = mine.find((b) => sheetDate(String(b.date)) === date && String(b.time) === slot
+        && !/cancel|ยกเลิก/i.test(String(b.booking_status ?? "")));
+      if (dup) {
+        const msg = `คุณมีการจองในวันและเวลานี้แล้ว (${dup.booking_id})`;
+        setAvailErr(msg); toast.error(msg); return;
+      }
       // Re-check availability right before saving.
       const recheck = await checkAvailability(query);
       if (!recheck.ok) { setAvailErr(recheck.message); toast.error(recheck.message); return; }
