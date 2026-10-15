@@ -15,10 +15,36 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useLang, zoneLabel, type Lang } from "@/lib/i18n";
-import {
-  fetchReservationsByContact, cancelReservationByContact, fetchTables,
-  type Reservation, type ReservationStatus,
-} from "@/lib/reservations";
+import type { ReservationStatus } from "@/lib/reservations";
+import { fetchHistory, cancelBooking, safePeople, sheetDate, type GasBooking } from "@/lib/gasBooking";
+
+type Reservation = {
+  id: string; customer_name: string; phone: string; reservation_date: string; time_slot: string;
+  party_size: number | null; table_id: string; zone: string; status: ReservationStatus;
+  created_at: string; updated_at: string;
+};
+
+function toStatus(v: string): ReservationStatus {
+  const s = (v || "").toLowerCase();
+  if (s.includes("cancel") || s.includes("ยกเลิก")) return "cancelled";
+  if (s.includes("complete") || s.includes("เสร็จ")) return "completed";
+  if (s.includes("pending") || s.includes("รอ")) return "pending";
+  return "confirmed";
+}
+
+function fromGas(b: GasBooking): Reservation {
+  return {
+    id: String(b.booking_id), customer_name: b.name, phone: String(b.phone ?? ""),
+    reservation_date: sheetDate(String(b.date)), time_slot: String(b.time ?? ""),
+    party_size: safePeople(b.people), table_id: String(b.table_id ?? ""), zone: String(b.zone ?? ""),
+    status: toStatus(b.booking_status), created_at: String(b.created_at ?? ""), updated_at: String(b.updated_at ?? ""),
+  };
+}
+
+function fmt(v: string, pattern: string) {
+  const d = new Date(v);
+  return v && !isNaN(d.getTime()) ? format(d, pattern) : (v || "—");
+}
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/history")({
@@ -57,24 +83,24 @@ function HistoryPage() {
   const [pendingCancel, setPendingCancel] = useState<Reservation | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const myQ = useQuery({ queryKey: ["myReservations", user?.id], queryFn: () => fetchReservationsByContact(user!.phone, user!.email), enabled: !!user });
-  const tablesQ = useQuery({ queryKey: ["tables"], queryFn: fetchTables, enabled: !!user });
-
-  const zoneOf = (tableId: string) => tablesQ.data?.find((t) => t.id === tableId)?.zone;
-  const capacityOf = (tableId: string) => tablesQ.data?.find((t) => t.id === tableId)?.capacity;
+  const myQ = useQuery({
+    queryKey: ["myReservations", user?.id],
+    queryFn: async () => (await fetchHistory(user!.id)).map(fromGas),
+    enabled: !!user,
+  });
 
   const doCancel = async () => {
     if (!pendingCancel) return;
     setBusy(true);
-    const r = await cancelReservationByContact(pendingCancel.id, user?.phone ?? "", user?.email ?? "");
+    const r = await cancelBooking(user?.id ?? "", pendingCancel.id);
     setBusy(false);
     if (r.ok) {
-      toast.success(lang === "th" ? "ยกเลิกการจองแล้ว" : "Reservation cancelled");
+      toast.success(r.data.message || (lang === "th" ? "ยกเลิกการจองแล้ว" : "Reservation cancelled"));
       qc.invalidateQueries({ queryKey: ["myReservations"] });
       qc.invalidateQueries({ queryKey: ["reservations"] });
       setDetail(null);
     } else {
-      toast.error(String(r.reason));
+      toast.error(r.message);
     }
     setPendingCancel(null);
   };
@@ -135,9 +161,9 @@ function HistoryPage() {
                     <StatusBadge status={r.status} lang={lang} />
                   </div>
                   <div className="mt-1 font-sans text-sm text-muted-foreground tabular-nums">
-                    {format(new Date(r.reservation_date), "EEE, d MMM yyyy")} · {r.time_slot} · {r.party_size}{" "}
+                    {fmt(r.reservation_date, "EEE, d MMM yyyy")} · {r.time_slot} · {r.party_size ?? "—"}{" "}
                     {lang === "th" ? "ท่าน" : "guests"}
-                    {zoneOf(r.table_id) ? ` · ${zoneLabel(zoneOf(r.table_id)!, lang)}` : ""}
+                    {r.zone ? ` · ${zoneLabel(r.zone, lang)}` : ""}
                   </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setDetail(r)}>
@@ -162,23 +188,23 @@ function HistoryPage() {
 
           {detail && (
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <Row label={lang === "th" ? "รหัสการจอง" : "Booking ID"} value={detail.id.slice(0, 8).toUpperCase()} />
+              <Row label={lang === "th" ? "รหัสการจอง" : "Booking ID"} value={detail.id} />
               <Row label={lang === "th" ? "สถานะ" : "Status"} value={<StatusBadge status={detail.status} lang={lang} />} />
               <Row label={lang === "th" ? "ชื่อผู้จอง" : "Name"} value={detail.customer_name} />
               <Row label={lang === "th" ? "เบอร์โทร" : "Phone"} value={detail.phone} />
-              <Row label={lang === "th" ? "วันที่" : "Date"} value={format(new Date(detail.reservation_date), "d MMM yyyy")} />
+              <Row label={lang === "th" ? "วันที่" : "Date"} value={fmt(detail.reservation_date, "d MMM yyyy")} />
               <Row label={lang === "th" ? "เวลา" : "Time"} value={detail.time_slot} />
-              <Row label={lang === "th" ? "จำนวนผู้เข้าร่วม" : "Guests"} value={String(detail.party_size)} />
+              <Row label={lang === "th" ? "จำนวนผู้เข้าร่วม" : "Guests"} value={detail.party_size != null ? String(detail.party_size) : "—"} />
               <Row
                 label={lang === "th" ? "โต๊ะ" : "Table"}
-                value={`${detail.table_id}${capacityOf(detail.table_id) ? ` (${capacityOf(detail.table_id)})` : ""}`}
+                value={detail.table_id || "—"}
               />
               <Row
                 label={lang === "th" ? "โซน" : "Zone"}
-                value={zoneOf(detail.table_id) ? zoneLabel(zoneOf(detail.table_id)!, lang) : "—"}
+                value={detail.zone ? zoneLabel(detail.zone, lang) : "—"}
               />
-              <Row label={lang === "th" ? "วันที่สร้าง" : "Created"} value={format(new Date(detail.created_at), "d MMM yyyy HH:mm")} />
-              <Row label={lang === "th" ? "แก้ไขล่าสุด" : "Last updated"} value={format(new Date(detail.updated_at), "d MMM yyyy HH:mm")} />
+              <Row label={lang === "th" ? "วันที่สร้าง" : "Created"} value={fmt(detail.created_at, "d MMM yyyy HH:mm")} />
+              <Row label={lang === "th" ? "แก้ไขล่าสุด" : "Last updated"} value={fmt(detail.updated_at, "d MMM yyyy HH:mm")} />
             </div>
           )}
 
