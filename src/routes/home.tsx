@@ -787,7 +787,7 @@ function BookingDialog({
   const [checking, setChecking] = useState(false);
   const [availErr, setAvailErr] = useState<string | null>(null);
   const query = table && slot && date
-    ? { date, time: slot, people: partySize, zone: zoneLabel(table.zone, "th") }
+    ? { date, time: slot, people: partySize, zone: sheetZone(table.zone) }
     : null;
   useEffect(() => {
     if (!open || !query) { setAssigned(null); setAvailErr(null); return; }
