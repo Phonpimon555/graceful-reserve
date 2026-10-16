@@ -804,6 +804,7 @@ function BookingDialog({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
   const [done, setDone] = useState<{ id: string; name: string; phone: string; table: string; zone: string; people: number; status: string; date: string; time: string } | null>(null);
 
   useEffect(() => {
@@ -846,6 +847,8 @@ function BookingDialog({
       toast.error(lang === "th" ? "กรุณากรอกเบอร์โทรให้ถูกต้อง (เริ่มด้วย 0 ยาว 9-10 หลัก)" : "Please enter a valid phone number (starts with 0, 9-10 digits)");
       return;
     }
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     try {
       // Block a second active booking by the same member for the same date + time.
@@ -886,6 +889,7 @@ function BookingDialog({
         date: String(d.date ?? date), time: String(d.time ?? slot),
       });
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
