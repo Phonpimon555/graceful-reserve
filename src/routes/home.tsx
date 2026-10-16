@@ -801,6 +801,7 @@ function BookingDialog({
 }) {
   const { t, lang } = useLang();
   const { user, profile } = useAuth();
+  const qc = useQueryClient();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
