@@ -56,8 +56,20 @@ export type BookingResult = {
   people?: number; booking_status?: string; date?: string; time?: string; message?: string;
 };
 
-export const createBooking = (member_id: string, q: BookingQuery) =>
-  call<BookingResult>({ action: "booking", member_id, ...q }, "จองไม่สำเร็จ กรุณาลองใหม่");
+export type TableStatusRow = { table_id: string; zone: string; capacity: number; occupied: boolean };
+
+export type TablesStatusResult = { tables: TableStatusRow[] };
+
+/**
+ * Per-table occupancy for a date/time (and optional zone) from the sheet.
+ * Requires the Apps Script `tables` action — returns ok:false with the
+ * "unknown action" message on deployments that do not have it yet.
+ */
+export const fetchTablesStatus = (q: { date: string; time: string; zone?: string }) =>
+  call<TablesStatusResult>({ action: "tables", ...q }, "โหลดสถานะโต๊ะไม่สำเร็จ");
+
+export const createBooking = (member_id: string, q: BookingQuery, opts?: { table_id?: string; name?: string; phone?: string }) =>
+  call<BookingResult>({ action: "booking", member_id, ...q, ...opts }, "จองไม่สำเร็จ กรุณาลองใหม่");
 
 export type GasBooking = {
   booking_id: string; name: string; phone: string; date: string; time: string; people: number;
