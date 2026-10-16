@@ -996,7 +996,20 @@ function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void })
 
   const myQ = useQuery({
     queryKey: ["myReservations", user?.id],
-    queryFn: () => fetchReservationsByContact(user!.phone, user!.email),
+    queryFn: async () =>
+      (await fetchHistory(user!.id)).map((b) => ({
+        id: String(b.booking_id),
+        customer_name: String(b.name ?? ""),
+        phone: String(b.phone ?? ""),
+        reservation_date: sheetDate(String(b.date)),
+        time_slot: String(b.time ?? ""),
+        party_size: safePeople(b.people),
+        table_id: String(b.table_id ?? ""),
+        zone: String(b.zone ?? ""),
+        status: /cancel|ยกเลิก/i.test(String(b.booking_status ?? "")) ? "cancelled" : "confirmed",
+        created_at: String(b.created_at ?? ""),
+        updated_at: String(b.updated_at ?? ""),
+      }) as Reservation),
     enabled: open && !!user,
   });
 
@@ -1005,16 +1018,17 @@ function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const active = (myQ.data ?? []).filter((r) => r.status !== "cancelled" && r.status !== "completed");
 
   const doCancel = async () => {
-    if (!pendingCancel) return;
+    if (!pendingCancel || !user) return;
     setBusy(true);
-    const r = await cancelReservationByContact(pendingCancel.id, user?.phone ?? "", user?.email ?? "");
+    const r = await cancelBooking(user.id, pendingCancel.id);
     setBusy(false);
     if (r.ok) {
       toast.success(t("cancelSuccess"));
       qc.invalidateQueries({ queryKey: ["myReservations"] });
+      qc.invalidateQueries({ queryKey: ["gasTables"] });
       qc.invalidateQueries({ queryKey: ["reservations"] });
     } else {
-      toast.error(String(r.reason));
+      toast.error(r.message);
     }
     setPendingCancel(null);
   };
