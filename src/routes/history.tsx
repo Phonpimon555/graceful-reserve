@@ -115,7 +115,7 @@ function HistoryPage() {
         <Button
           asChild
           variant="outline"
-          className="gap-2 rounded-full border-border/70 bg-card/70 px-4 text-sm font-medium hover:border-gold hover:bg-card hover:text-primary"
+          className="h-11 gap-2 rounded-full border-border/70 bg-card/70 px-4 text-sm font-medium hover:border-gold hover:bg-card hover:text-primary"
         >
           <Link to="/home">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
