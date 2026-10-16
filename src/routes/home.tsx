@@ -839,6 +839,13 @@ function BookingDialog({
     if (!table || !slot || !date || busy || !query) return;
     if (!user) { toast.error(lang === "th" ? "กรุณาเข้าสู่ระบบก่อนจองโต๊ะ" : "Please sign in to book a table"); return; }
     if (!isSlotBookable(date, slot)) { toast.error("ช่วงเวลานี้ไม่สามารถจองได้ กรุณาเลือกเวลาใหม่"); return; }
+    const cleanName = name.trim();
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (!cleanName) { toast.error(lang === "th" ? "กรุณากรอกชื่อผู้จอง" : "Please enter the booking name"); return; }
+    if (!/^0\d{8,9}$/.test(cleanPhone)) {
+      toast.error(lang === "th" ? "กรุณากรอกเบอร์โทรให้ถูกต้อง (เริ่มด้วย 0 ยาว 9-10 หลัก)" : "Please enter a valid phone number (starts with 0, 9-10 digits)");
+      return;
+    }
     setBusy(true);
     try {
       // Block a second active booking by the same member for the same date + time.
@@ -853,16 +860,28 @@ function BookingDialog({
       // Re-check availability right before saving.
       const recheck = await checkAvailability(query);
       if (!recheck.ok) { setAvailErr(recheck.message); toast.error(recheck.message); return; }
-      setAssigned(recheck.data);
-      const r = await createBooking(user.id, query);
+      // Send the exact table the user picked, plus the (possibly edited) contact details.
+      const r = await createBooking(user.id, query, { table_id: table.id, name: cleanName, phone: cleanPhone });
       if (!r.ok || !r.data.booking_id) {
         toast.error(r.ok ? "จองไม่สำเร็จ กรุณาลองใหม่" : r.message);
         return;
       }
       const d = r.data;
+      // The backend must book the exact table the user selected — never silently
+      // switch to another one. If it did, roll the booking back and ask the user
+      // to pick again.
+      if (d.table_id && String(d.table_id) !== table.id) {
+        await cancelBooking(user.id, String(d.booking_id));
+        const msg = lang === "th"
+          ? `โต๊ะ ${table.id} ไม่ว่างในช่วงเวลาที่เลือก กรุณาเลือกโต๊ะหรือเวลาอื่น`
+          : `Table ${table.id} is no longer available for that time. Please pick another table or time.`;
+        setAvailErr(msg); toast.error(msg);
+        qc.invalidateQueries({ queryKey: ["gasTables"] });
+        return;
+      }
       setDone({
-        id: String(d.booking_id), name: String(d.name ?? name), phone: String(d.phone ?? phone),
-        table: String(d.table_id ?? recheck.data.table_id), zone: String(d.zone ?? recheck.data.zone),
+        id: String(d.booking_id), name: String(d.name ?? cleanName), phone: String(d.phone ?? cleanPhone),
+        table: String(d.table_id ?? table.id), zone: String(d.zone ?? recheck.data.zone),
         people: safePeople(d.people) ?? partySize, status: String(d.booking_status ?? "Confirmed"),
         date: String(d.date ?? date), time: String(d.time ?? slot),
       });
@@ -917,12 +936,12 @@ function BookingDialog({
 
         {table && (
           <div className="rounded-xl border bg-muted/30 p-4 grid grid-cols-3 gap-3 text-center">
-            <DetailCell label={t("table")} value={checking ? "..." : assigned?.table_id ?? "—"} />
+            <DetailCell label={t("table")} value={table.id} />
             <DetailCell label={t("step1")} value={date ? format(new Date(date), "MMM d") : "—"} />
             <DetailCell label={t("step2")} value={slot ?? "—"} small />
             <DetailCell label={lang === "th" ? "จำนวนคน" : "Guests"} value={`${partySize}`} />
-            <DetailCell label={lang === "th" ? "โซน" : "Zone"} value={assigned?.zone ?? zoneLabel(table.zone, lang)} small />
-            <DetailCell label={lang === "th" ? "ความจุ" : "Seats"} value={assigned ? `${assigned.capacity}` : "—"} />
+            <DetailCell label={lang === "th" ? "โซน" : "Zone"} value={zoneLabel(table.zone, lang)} small />
+            <DetailCell label={lang === "th" ? "ความจุ" : "Seats"} value={`${table.capacity}`} />
           </div>
         )}
         {availErr && <p className="text-sm text-destructive">{availErr}</p>}
@@ -930,11 +949,11 @@ function BookingDialog({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="name">{t("customerName")}</Label>
-            <Input id="name" value={name} readOnly maxLength={80} />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="phone">{t("customerPhone")}</Label>
-            <Input id="phone" inputMode="tel" value={phone} readOnly maxLength={20} placeholder="081-234-5678" />
+            <Input id="phone" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} placeholder="081-234-5678" />
           </div>
         </div>
 
