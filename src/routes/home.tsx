@@ -809,8 +809,8 @@ function BookingDialog({
 
   useEffect(() => {
     if (open) {
-      setName(profile?.full_name ?? "");
-      setPhone(profile?.phone ?? "");
+      // Customers type their own contact details — never prefill from the account.
+      setName(""); setPhone("");
     } else {
       setName(""); setPhone("");
     }
@@ -863,16 +863,6 @@ function BookingDialog({
       // Re-check availability right before saving.
       const recheck = await checkAvailability(query);
       if (!recheck.ok) { setAvailErr(recheck.message); toast.error(recheck.message); return; }
-      // The live Apps Script assigns the table itself (it ignores table_id). If it would
-      // assign a different table than the one picked, stop here — before anything is
-      // written to the sheet — and explain why, instead of booking then rolling back.
-      const willAssign = String(recheck.data.table_id ?? "").trim().toUpperCase();
-      if (willAssign && willAssign !== table.id.trim().toUpperCase()) {
-        const msg = lang === "th"
-          ? `ระบบจะจัดโต๊ะ ${willAssign} ให้สำหรับช่วงเวลานี้ (ยังเลือกโต๊ะ ${table.id} เองไม่ได้) กรุณาเลือกโต๊ะ ${willAssign} เพื่อจอง`
-          : `The system will assign table ${willAssign} for this time (choosing ${table.id} isn't supported yet). Please select ${willAssign} to book.`;
-        setAvailErr(msg); toast.error(msg); return;
-      }
       // Send the exact table the user picked, plus the (possibly edited) contact details.
       const r = await createBooking(user.id, query, { table_id: table.id, name: cleanName, phone: cleanPhone });
       if (!r.ok || !r.data.booking_id) {
@@ -880,6 +870,17 @@ function BookingDialog({
         return;
       }
       const d = r.data;
+      // Never silently switch tables. The currently deployed Apps Script still picks
+      // its own table; if it booked a different one, undo it and explain the real cause.
+      if (d.table_id && String(d.table_id).trim().toUpperCase() !== table.id.trim().toUpperCase()) {
+        await cancelBooking(user.id, String(d.booking_id));
+        const msg = lang === "th"
+          ? `ระบบหลังบ้านยังจัดโต๊ะ ${d.table_id} แทนโต๊ะ ${table.id} ที่คุณเลือก จึงยกเลิกรายการนั้นให้แล้ว (ยังไม่ได้จอง) — ระบบหลังบ้านต้องอัปเดตก่อนจึงจะเลือกโต๊ะเองได้`
+          : `The booking system assigned ${d.table_id} instead of your table ${table.id}, so that entry was cancelled (nothing is booked). The booking system needs an update to support choosing tables.`;
+        setAvailErr(msg); toast.error(msg);
+        qc.invalidateQueries({ queryKey: ["gasTables"] });
+        return;
+      }
       setAvailErr(null);
       qc.invalidateQueries({ queryKey: ["gasTables"] });
       setDone({
