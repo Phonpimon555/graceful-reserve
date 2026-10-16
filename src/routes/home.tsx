@@ -22,8 +22,7 @@ import { cn } from "@/lib/utils";
 import { isSlotBookable, isPastDateKey, toDateKey, useBangkokNow } from "@/lib/booking-time";
 import { TIME_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
-  fetchActiveTables, fetchReservationsForDate, createReservation,
-  fetchReservationsByContact, cancelReservationByContact,
+  fetchActiveTables, fetchReservationsForDate,
   type TableRow, type Reservation,
 } from "@/lib/reservations";
 import { useAuth } from "@/hooks/useAuth";
