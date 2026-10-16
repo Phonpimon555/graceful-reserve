@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
@@ -804,6 +804,7 @@ function BookingDialog({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
   const [done, setDone] = useState<{ id: string; name: string; phone: string; table: string; zone: string; people: number; status: string; date: string; time: string } | null>(null);
 
   useEffect(() => {
@@ -846,6 +847,8 @@ function BookingDialog({
       toast.error(lang === "th" ? "กรุณากรอกเบอร์โทรให้ถูกต้อง (เริ่มด้วย 0 ยาว 9-10 หลัก)" : "Please enter a valid phone number (starts with 0, 9-10 digits)");
       return;
     }
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     try {
       // Block a second active booking by the same member for the same date + time.
@@ -860,6 +863,16 @@ function BookingDialog({
       // Re-check availability right before saving.
       const recheck = await checkAvailability(query);
       if (!recheck.ok) { setAvailErr(recheck.message); toast.error(recheck.message); return; }
+      // The live Apps Script assigns the table itself (it ignores table_id). If it would
+      // assign a different table than the one picked, stop here — before anything is
+      // written to the sheet — and explain why, instead of booking then rolling back.
+      const willAssign = String(recheck.data.table_id ?? "").trim().toUpperCase();
+      if (willAssign && willAssign !== table.id.trim().toUpperCase()) {
+        const msg = lang === "th"
+          ? `ระบบจะจัดโต๊ะ ${willAssign} ให้สำหรับช่วงเวลานี้ (ยังเลือกโต๊ะ ${table.id} เองไม่ได้) กรุณาเลือกโต๊ะ ${willAssign} เพื่อจอง`
+          : `The system will assign table ${willAssign} for this time (choosing ${table.id} isn't supported yet). Please select ${willAssign} to book.`;
+        setAvailErr(msg); toast.error(msg); return;
+      }
       // Send the exact table the user picked, plus the (possibly edited) contact details.
       const r = await createBooking(user.id, query, { table_id: table.id, name: cleanName, phone: cleanPhone });
       if (!r.ok || !r.data.booking_id) {
@@ -867,18 +880,8 @@ function BookingDialog({
         return;
       }
       const d = r.data;
-      // The backend must book the exact table the user selected — never silently
-      // switch to another one. If it did, roll the booking back and ask the user
-      // to pick again.
-      if (d.table_id && String(d.table_id) !== table.id) {
-        await cancelBooking(user.id, String(d.booking_id));
-        const msg = lang === "th"
-          ? `โต๊ะ ${table.id} ไม่ว่างในช่วงเวลาที่เลือก กรุณาเลือกโต๊ะหรือเวลาอื่น`
-          : `Table ${table.id} is no longer available for that time. Please pick another table or time.`;
-        setAvailErr(msg); toast.error(msg);
-        qc.invalidateQueries({ queryKey: ["gasTables"] });
-        return;
-      }
+      setAvailErr(null);
+      qc.invalidateQueries({ queryKey: ["gasTables"] });
       setDone({
         id: String(d.booking_id), name: String(d.name ?? cleanName), phone: String(d.phone ?? cleanPhone),
         table: String(d.table_id ?? table.id), zone: String(d.zone ?? recheck.data.zone),
@@ -886,6 +889,7 @@ function BookingDialog({
         date: String(d.date ?? date), time: String(d.time ?? slot),
       });
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
