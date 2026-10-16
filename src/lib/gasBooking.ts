@@ -34,6 +34,14 @@ export function sheetZone(z: string): string {
   return "VIP";
 }
 
+/** Reverse of sheetZone — map a sheet zone value back to the app's zone key. */
+export function zoneFromSheet(z: string): string {
+  const s = z.trim();
+  if (s === "ริมบึง") return "Riverside";
+  if (s === "สวน") return "AirConditioned";
+  return "VIP";
+}
+
 export type AvailabilityResult = {
   table_id: string; zone: string; capacity: number; date: string; time: string; people: number; message?: string;
 };
