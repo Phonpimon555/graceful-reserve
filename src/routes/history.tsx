@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,18 @@ function HistoryPage() {
     <div className="min-h-screen bg-background">
       <NavBar />
       <main className="mx-auto max-w-4xl px-4 sm:px-6 py-12 sm:py-16">
-        <h1 className="font-display text-4xl">{lang === "th" ? "ประวัติการจอง" : "Booking History"}</h1>
+        <Button
+          asChild
+          variant="outline"
+          className="gap-2 rounded-full border-border/70 bg-card/70 px-4 text-sm font-medium hover:border-gold hover:bg-card hover:text-primary"
+        >
+          <Link to="/home">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            {lang === "th" ? "กลับหน้าหลัก" : "Back home"}
+          </Link>
+        </Button>
+
+        <h1 className="mt-6 font-display text-4xl">{lang === "th" ? "ประวัติการจอง" : "Booking History"}</h1>
         <div className="mt-3 h-px w-24 gold-divider" />
 
         {loading ? (
