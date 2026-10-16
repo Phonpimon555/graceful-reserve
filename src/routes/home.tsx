@@ -217,6 +217,28 @@ function BookingSection() {
     enabled: !!dateKey,
   });
 
+  // Live per-table occupancy from Google Sheets (requires the Apps Script `tables` action).
+  const gasTablesQ = useQuery({
+    queryKey: ["gasTables", dateKey, slot],
+    queryFn: async () => {
+      const r = await fetchTablesStatus({ date: dateKey, time: slot! });
+      if (!r.ok) throw new Error(r.message);
+      return r.data;
+    },
+    enabled: !!dateKey && !!slot,
+    retry: false,
+    refetchInterval: 30_000,
+  });
+  const gasSupported = gasTablesQ.isSuccess;
+  const gasTableRows = useMemo<TableRow[]>(
+    () => (gasTablesQ.data?.tables ?? []).map((t: TableStatusRow) => ({
+      id: t.table_id,
+      zone: zoneFromSheet(String(t.zone)) as Zone,
+      capacity: Number(t.capacity) || 0,
+    }) as unknown as TableRow),
+    [gasTablesQ.data],
+  );
+
   useEffect(() => {
     if (!dateKey) return;
     const channel = supabase
@@ -229,7 +251,9 @@ function BookingSection() {
     return () => { supabase.removeChannel(channel); };
   }, [dateKey, qc]);
 
-  const tables = tablesQ.data ?? [];
+  // Prefer live sheet data; fall back to the legacy source only while the
+  // Apps Script `tables` action is not deployed yet.
+  const tables = gasSupported ? gasTableRows : (tablesQ.data ?? []);
   const reservations = resQ.data ?? [];
 
   const slotCounts = useMemo(() => {
@@ -240,8 +264,13 @@ function BookingSection() {
 
   const reservedTableIds = useMemo(() => {
     if (!slot) return new Set<string>();
+    if (gasSupported) {
+      return new Set(
+        (gasTablesQ.data?.tables ?? []).filter((t) => t.occupied).map((t) => t.table_id),
+      );
+    }
     return new Set(reservations.filter((r) => r.time_slot === slot).map((r) => r.table_id));
-  }, [reservations, slot]);
+  }, [reservations, slot, gasSupported, gasTablesQ.data]);
 
   const filteredTables = useMemo(
     () => tables
@@ -446,6 +475,7 @@ function BookingSection() {
         partySize={partySize}
         onSuccess={() => {
           qc.invalidateQueries({ queryKey: ["reservations", dateKey] });
+          qc.invalidateQueries({ queryKey: ["gasTables"] });
           qc.invalidateQueries({ queryKey: ["myReservations"] });
           setSelectedTable(null);
         }}
