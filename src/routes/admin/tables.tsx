@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { verifyAdminAccess } from "@/lib/admin-auth";
 import { NavBar } from "@/components/NavBar";
 import { AdminGuard, AdminTabs } from "@/components/AdminGuard";
 import { Card } from "@/components/ui/card";
@@ -23,9 +24,18 @@ import { useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import { fetchTables, type TableRow } from "@/lib/reservations";
 
 export const Route = createFileRoute("/admin/tables")({
+  ssr: false,
+  beforeLoad: async () => {
+    if (!(await verifyAdminAccess())) throw redirect({ to: "/admin/login", replace: true });
+  },
   head: () => ({
     meta: [
       { title: "Tables · Admin · Riverside Kitchen" },
+      { name: "description", content: "Table management for Riverside Kitchen administrators." },
+      { property: "og:title", content: "Tables · Admin · Riverside Kitchen" },
+      { property: "og:description", content: "Table management for Riverside Kitchen administrators." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),
