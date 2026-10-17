@@ -17,6 +17,8 @@ export const Route = createFileRoute("/profile")({
       { name: "description", content: "Manage your Riverside Kitchen member profile: name, phone and email." },
       { property: "og:title", content: "My Profile — Riverside Kitchen" },
       { property: "og:description", content: "Manage your member profile details." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: ProfilePage,

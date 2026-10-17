@@ -1,18 +1,15 @@
-import { Link } from "@tanstack/react-router";
+import { Link, Navigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { Loader2, ShieldAlert } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useLang } from "@/lib/i18n";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 
 /** Client-side gate. Real protection is RLS: only admins can write. */
 export function AdminGuard({ children }: { children: ReactNode }) {
-  const { loading, user, isAdmin } = useAuth();
-  const { lang } = useLang();
+  const { adminLoading, isAdmin } = useAuth();
 
-  if (loading) {
+  if (adminLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -21,26 +18,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
   }
 
   if (!isAdmin) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center px-4">
-        <Card className="max-w-md w-full p-8 text-center border-border/60 shadow-soft">
-          <ShieldAlert className="mx-auto h-8 w-8 text-destructive" />
-          <h2 className="mt-4 font-display text-2xl text-primary">
-            {lang === "th" ? "ไม่มีสิทธิ์เข้าถึง" : "Access denied"}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {lang === "th"
-              ? "หน้านี้สำหรับผู้ดูแลระบบเท่านั้น กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแล"
-              : "This area is for administrators only. Please sign in with an admin account."}
-          </p>
-          <Button asChild className="mt-6 rounded-full">
-            <Link to="/admin/login">
-              {lang === "th" ? "เข้าสู่ระบบผู้ดูแล" : "Admin sign in"}
-            </Link>
-          </Button>
-        </Card>
-      </div>
-    );
+    return <Navigate to="/admin/login" replace />;
   }
 
   return <>{children}</>;

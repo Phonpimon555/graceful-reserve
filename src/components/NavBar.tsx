@@ -61,11 +61,11 @@ export function NavBar() {
             {t("navMenu")}
           </Link>
 
-          {isAdmin && (
-            <Link to="/admin" className="hidden sm:inline-flex px-3 py-2 text-sm hover:text-primary transition">
+          <Button asChild variant="ghost" size="sm" className="shrink-0 rounded-full px-2 sm:px-3">
+            <Link to="/admin/login">
               {t("navAdmin")}
             </Link>
-          )}
+          </Button>
 
           <LangSwitcher lang={lang} setLang={setLang} />
 
@@ -119,7 +119,7 @@ export function NavBar() {
 
                   {isAdmin && (
                     <Link
-                      to="/admin"
+                      to="/admin/login"
                       className="block rounded-lg px-3 py-2 text-sm hover:bg-muted transition sm:hidden"
                       onClick={() => setOpen(false)}
                     >

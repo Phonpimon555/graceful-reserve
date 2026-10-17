@@ -48,6 +48,10 @@ export const Route = createFileRoute("/home")({
     meta: [
       { title: "ครัวริมบึง · Riverside Kitchen — Lakeside Fine Dining" },
       { name: "description", content: "Premium lakeside Thai dining. Live table availability and instant booking at Riverside Kitchen." },
+      { property: "og:title", content: "ครัวริมบึง · Riverside Kitchen — Lakeside Fine Dining" },
+      { property: "og:description", content: "Premium lakeside Thai dining. Live table availability and instant booking at Riverside Kitchen." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: HomePage,

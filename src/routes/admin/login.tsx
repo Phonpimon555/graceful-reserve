@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { verifyAdminAccess } from "@/lib/admin-auth";
 import { useLang } from "@/lib/i18n";
 import { NavBar } from "@/components/NavBar";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,11 @@ export const Route = createFileRoute("/admin/login")({
   head: () => ({
     meta: [
       { title: "Admin Sign In · Riverside Kitchen" },
+      { name: "description", content: "Administrator sign in for Riverside Kitchen restaurant management." },
+      { property: "og:title", content: "Admin Sign In · Riverside Kitchen" },
+      { property: "og:description", content: "Administrator sign in for Riverside Kitchen restaurant management." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -25,40 +30,38 @@ export const Route = createFileRoute("/admin/login")({
 function AdminLoginPage() {
   const { lang } = useLang();
   const navigate = useNavigate();
-  const { user, isAdmin, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!loading && isAdmin) navigate({ to: "/admin", replace: true });
-  }, [loading, isAdmin, navigate]);
+  const [errorMessage, setErrorMessage] = useState("");
+  const inFlight = useRef(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error || !data.user) {
+    setErrorMessage("");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error || !data.user) {
+        setErrorMessage(lang === "th" ? "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน" : "Sign in failed. Please check your email and password.");
+        return;
+      }
+      if (!(await verifyAdminAccess())) {
+        await supabase.auth.signOut();
+        setErrorMessage(lang === "th" ? "ไม่สามารถเข้าสู่หน้าผู้ดูแลด้วยบัญชีนี้ได้" : "This account cannot access administrator pages.");
+        return;
+      }
+      setPassword("");
+      toast.success(lang === "th" ? "เข้าสู่ระบบผู้ดูแลแล้ว" : "Signed in as admin");
+      await navigate({ to: "/admin", replace: true });
+    } catch {
+      setErrorMessage(lang === "th" ? "ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่อีกครั้ง" : "Unable to connect. Please try again.");
+    } finally {
+      inFlight.current = false;
       setBusy(false);
-      toast.error(lang === "th" ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง" : "Invalid email or password");
-      return;
     }
-    const { data: isAdminNow } = await supabase.rpc("has_role", {
-      _user_id: data.user.id,
-      _role: "admin",
-    });
-    setBusy(false);
-    if (isAdminNow !== true) {
-      await supabase.auth.signOut();
-      toast.error(
-        lang === "th"
-          ? "บัญชีนี้ไม่มีสิทธิ์ผู้ดูแลระบบ"
-          : "This account does not have admin permission",
-      );
-      return;
-    }
-    toast.success(lang === "th" ? "เข้าสู่ระบบผู้ดูแลแล้ว" : "Signed in as admin");
-    navigate({ to: "/admin", replace: true });
   };
 
   return (
@@ -97,8 +100,9 @@ function AdminLoginPage() {
             </div>
             <Button type="submit" disabled={busy} className="w-full rounded-full">
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
+              {lang === "th" ? "เข้าสู่ระบบ" : "Login"}
             </Button>
+            {errorMessage && <p role="alert" className="text-sm text-destructive">{errorMessage}</p>}
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">

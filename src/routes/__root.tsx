@@ -81,8 +81,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Riverside Kitchen — Reserve Your Perfect Table" },
       { name: "twitter:description", content: "Premium real-time table reservation system for Riverside Kitchen. Modern Thai dining by the river." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/aab96fcc-ffcb-42ed-94bb-9c9d095f8d75/id-preview-18dd837b--24a96610-82ec-471f-b5e0-a3c656b46f3c.lovable.app-1782286546637.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/aab96fcc-ffcb-42ed-94bb-9c9d095f8d75/id-preview-18dd837b--24a96610-82ec-471f-b5e0-a3c656b46f3c.lovable.app-1782286546637.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

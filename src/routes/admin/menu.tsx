@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { verifyAdminAccess } from "@/lib/admin-auth";
 import { NavBar } from "@/components/NavBar";
 import { AdminGuard, AdminTabs } from "@/components/AdminGuard";
 import { Card } from "@/components/ui/card";
@@ -23,9 +24,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/admin/menu")({
+  ssr: false,
+  beforeLoad: async () => {
+    if (!(await verifyAdminAccess())) throw redirect({ to: "/admin/login", replace: true });
+  },
   head: () => ({
     meta: [
       { title: "Menu · Admin · Riverside Kitchen" },
+      { name: "description", content: "Menu management for Riverside Kitchen administrators." },
+      { property: "og:title", content: "Menu · Admin · Riverside Kitchen" },
+      { property: "og:description", content: "Menu management for Riverside Kitchen administrators." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),
