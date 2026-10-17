@@ -55,6 +55,8 @@ export const Route = createFileRoute("/history")({
       { name: "description", content: "View your Riverside Kitchen reservation history, details and status." },
       { property: "og:title", content: "My Bookings — Riverside Kitchen" },
       { property: "og:description", content: "View your reservation history, details and status." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: HistoryPage,

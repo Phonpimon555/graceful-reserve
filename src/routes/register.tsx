@@ -12,6 +12,8 @@ export const Route = createFileRoute("/register")({
       { name: "description", content: "Create a Riverside Kitchen account to save your reservation history and book faster." },
       { property: "og:title", content: "Register — Riverside Kitchen" },
       { property: "og:description", content: "Create an account to save your reservation history and book faster." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: RegisterPage,
