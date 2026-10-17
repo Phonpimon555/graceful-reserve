@@ -12,6 +12,8 @@ export const Route = createFileRoute("/login")({
       { name: "description", content: "Sign in to Riverside Kitchen to book a table and view your reservation history." },
       { property: "og:title", content: "Sign in — Riverside Kitchen" },
       { property: "og:description", content: "Sign in to book a table and view your reservation history." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Login,

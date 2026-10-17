@@ -35,6 +35,8 @@ export const Route = createFileRoute("/menu")({
       { name: "description", content: "Seasonal modern Thai cuisine at Riverside Kitchen — fresh seafood, signature curries, and house-crafted drinks." },
       { property: "og:title", content: "Menu — Riverside Kitchen" },
       { property: "og:description", content: "Explore signature Thai dishes from our lakeside kitchen." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: MenuPage,

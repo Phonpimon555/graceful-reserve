@@ -1,4 +1,4 @@
-import { Navigate } from "@tanstack/react-router";
+import { Link, Navigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 
