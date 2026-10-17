@@ -11,4 +11,6 @@
 
 ## Architecture rules
 
+- Existing `/admin` content routes validate the Cloud Auth user and protected `has_role` RPC before loading with SSR disabled; `/admin/login` stays public, and customer GAS authentication remains separate. This preserves published URLs and prevents protected page mounting before role validation.
+
 - Customer auth and table booking run on the Google Apps Script + Google Sheets API (`src/lib/auth/gasAuth.ts`, `src/lib/gasBooking.ts`), not Supabase — the owner manages data in Sheets, so do not route customer login/register/booking/history/cancel flows through Supabase tables. Supabase remains only for the admin back office and as a temporary fallback for the table map until the Apps Script `tables` action is deployed.

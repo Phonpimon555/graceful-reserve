@@ -4,6 +4,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { authClient } from "@/lib/auth";
 import type { AuthResult, AuthUser, SignUpInput } from "@/lib/auth";
+import { verifyAdminAccess } from "@/lib/admin-auth";
 
 export type Profile = {
   id: string;
@@ -18,6 +19,7 @@ type AuthCtx = {
   profile: Profile | null;
   /** Admin session (staff back office) — separate from the customer account. */
   isAdmin: boolean;
+  adminLoading: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (input: SignUpInput) => Promise<AuthResult>;
@@ -31,6 +33,7 @@ const Ctx = createContext<AuthCtx | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(true);
   const [loading, setLoading] = useState(true);
 
   // Customer session (mock, persisted locally)
@@ -43,13 +46,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Admin session (back office stays on the real auth service)
   useEffect(() => {
     let active = true;
-    const check = async (userId: string | undefined) => {
-      if (!userId) { if (active) setIsAdmin(false); return; }
-      const { data } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
-      if (active) setIsAdmin(data === true);
+    let revision = 0;
+    const check = async () => {
+      const current = ++revision;
+      if (active) setAdminLoading(true);
+      const allowed = await verifyAdminAccess();
+      if (active && current === revision) {
+        setIsAdmin(allowed);
+        setAdminLoading(false);
+      }
     };
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { void check(s?.user?.id); });
-    void supabase.auth.getSession().then(({ data }) => { void check(data.session?.user?.id); });
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        revision++;
+        if (active) { setIsAdmin(false); setAdminLoading(false); }
+      } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        // Auth calls must run outside the auth callback's internal lock.
+        setTimeout(() => { if (active) void check(); }, 0);
+      }
+    });
+    void check();
     return () => { active = false; sub.subscription.unsubscribe(); };
   }, []);
 
@@ -73,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ user, profile, isAdmin, loading, signIn, signUp, updateProfile, refreshProfile, signOut }}
+      value={{ user, profile, isAdmin, adminLoading, loading, signIn, signUp, updateProfile, refreshProfile, signOut }}
     >
       {children}
     </Ctx.Provider>
