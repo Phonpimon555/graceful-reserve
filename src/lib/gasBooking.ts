@@ -112,3 +112,18 @@ export function sheetDate(v: string): string {
   const d = new Date(v);
   return isNaN(d.getTime()) ? v : d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
 }
+
+/**
+ * The sheet stores the slot's start time ("20:00", "20.00") or the full slot
+ * ("20:00-21:00"). Return the website's one-hour slot ("20:00-21:00").
+ */
+export function sheetSlot(v: unknown): string {
+  const s = String(v ?? "").trim();
+  const full = s.match(/^(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:](\d{2})$/);
+  if (full) return `${full[1].padStart(2, "0")}:${full[2]}-${full[3].padStart(2, "0")}:${full[4]}`;
+  const start = s.match(/^(\d{1,2})[.:](\d{2})$/);
+  if (!start) return s;
+  const h = Number(start[1]);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(h)}:${start[2]}-${pad((h + 1) % 24)}:${start[2]}`;
+}
