@@ -867,6 +867,15 @@ function BookingDialog({
       // Re-check availability right before saving.
       const recheck = await checkAvailability(query);
       if (!recheck.ok) { setAvailErr(recheck.message); toast.error(recheck.message); return; }
+      const free = recheck.data.available_tables;
+      if (Array.isArray(free) && !free.some((t) => String(t.table_id).trim().toUpperCase() === table.id.trim().toUpperCase())) {
+        const msg = lang === "th"
+          ? `โต๊ะ ${table.id} ไม่ว่างในวันและเวลานี้ กรุณาเลือกโต๊ะอื่น`
+          : `Table ${table.id} is not available at this time. Please choose another table.`;
+        setAvailErr(msg); toast.error(msg);
+        qc.invalidateQueries({ queryKey: ["gasTables"] });
+        return;
+      }
       // Send the exact table the user picked, plus the (possibly edited) contact details.
       const r = await createBooking(user.id, query, { table_id: table.id, name: cleanName, phone: cleanPhone });
       if (!r.ok || !r.data.booking_id) {
