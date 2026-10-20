@@ -28,7 +28,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import {
   cancelBooking, checkAvailability, createBooking, fetchHistory, fetchTablesStatus,
-  safePeople, sheetDate, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
+  safePeople, sheetDate, sheetSlot, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
 } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -858,7 +858,7 @@ function BookingDialog({
       // Block a second active booking by the same member for the same date + time.
       let mine: Awaited<ReturnType<typeof fetchHistory>>;
       try { mine = await fetchHistory(user.id); } catch (e) { toast.error((e as Error).message); return; }
-      const dup = mine.find((b) => sheetDate(String(b.date)) === date && String(b.time) === slot
+      const dup = mine.find((b) => sheetDate(String(b.date)) === date && sheetSlot(b.time) === slot
         && !/cancel|ยกเลิก/i.test(String(b.booking_status ?? "")));
       if (dup) {
         const msg = `คุณมีการจองในวันและเวลานี้แล้ว (${dup.booking_id})`;
@@ -900,7 +900,7 @@ function BookingDialog({
         id: String(d.booking_id), name: String(d.name ?? cleanName), phone: String(d.phone ?? cleanPhone),
         table: String(d.table_id ?? table.id), zone: String(d.zone ?? recheck.data.zone),
         people: safePeople(d.people) ?? partySize, status: String(d.booking_status ?? "Confirmed"),
-        date: String(d.date ?? date), time: String(d.time ?? slot),
+        date: String(d.date ?? date), time: d.time ? sheetSlot(d.time) : slot,
       });
     } finally {
       inFlight.current = false;
@@ -1019,7 +1019,7 @@ function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void })
         customer_name: String(b.name ?? ""),
         phone: String(b.phone ?? ""),
         reservation_date: sheetDate(String(b.date)),
-        time_slot: String(b.time ?? ""),
+        time_slot: sheetSlot(b.time),
         party_size: safePeople(b.people),
         table_id: String(b.table_id ?? ""),
         zone: String(b.zone ?? ""),

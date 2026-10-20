@@ -17,7 +17,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useLang, zoneLabel, type Lang } from "@/lib/i18n";
 import type { ReservationStatus } from "@/lib/reservations";
-import { fetchHistory, cancelBooking, safePeople, sheetDate, type GasBooking } from "@/lib/gasBooking";
+import { fetchHistory, cancelBooking, safePeople, sheetDate, sheetSlot, type GasBooking } from "@/lib/gasBooking";
 
 type Reservation = {
   id: string; customer_name: string; phone: string; reservation_date: string; time_slot: string;
@@ -36,7 +36,7 @@ function toStatus(v: string): ReservationStatus {
 function fromGas(b: GasBooking): Reservation {
   return {
     id: String(b.booking_id), customer_name: b.name, phone: String(b.phone ?? ""),
-    reservation_date: sheetDate(String(b.date)), time_slot: String(b.time ?? ""),
+    reservation_date: sheetDate(String(b.date)), time_slot: sheetSlot(b.time),
     party_size: safePeople(b.people), table_id: String(b.table_id ?? ""), zone: String(b.zone ?? ""),
     status: toStatus(b.booking_status), created_at: String(b.created_at ?? ""), updated_at: String(b.updated_at ?? ""),
   };
