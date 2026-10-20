@@ -17,7 +17,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useLang, zoneLabel, type Lang } from "@/lib/i18n";
 import type { ReservationStatus } from "@/lib/reservations";
-import { fetchHistory, cancelBooking, safePeople, sheetDate, type GasBooking } from "@/lib/gasBooking";
+import { fetchHistory, cancelBooking, safePeople, sheetDate, sheetSlot, type GasBooking } from "@/lib/gasBooking";
 
 type Reservation = {
   id: string; customer_name: string; phone: string; reservation_date: string; time_slot: string;

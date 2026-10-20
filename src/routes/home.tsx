@@ -28,7 +28,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import {
   cancelBooking, checkAvailability, createBooking, fetchHistory, fetchTablesStatus,
-  safePeople, sheetDate, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
+  safePeople, sheetDate, sheetSlot, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
 } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
 
