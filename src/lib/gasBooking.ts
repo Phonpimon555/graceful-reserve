@@ -10,6 +10,15 @@ export type GasResult<T> = { ok: true; data: T } | { ok: false; message: string 
 
 const NET_ERR = "ไม่สามารถเชื่อมต่อระบบได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
 
+async function parse<T>(res: Response, fallback: string): Promise<GasResult<T>> {
+  const text = await res.text();
+  let data: any;
+  try { data = JSON.parse(text); } catch { return { ok: false, message: "ระบบตอบกลับไม่ถูกต้อง กรุณาลองใหม่ภายหลัง" }; }
+  if (data?.status === "success") return { ok: true, data: data as T };
+  return { ok: false, message: String(data?.message || fallback) };
+}
+
+/** POST for actions that write or need member data (login, booking, history, cancel). */
 async function call<T>(body: Record<string, unknown>, fallback: string): Promise<GasResult<T>> {
   try {
     const res = await fetch(GAS_API_URL, {
@@ -17,11 +26,20 @@ async function call<T>(body: Record<string, unknown>, fallback: string): Promise
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(body),
     });
-    const text = await res.text();
-    let data: any;
-    try { data = JSON.parse(text); } catch { return { ok: false, message: "ระบบตอบกลับไม่ถูกต้อง กรุณาลองใหม่ภายหลัง" }; }
-    if (data?.status === "success") return { ok: true, data: data as T };
-    return { ok: false, message: String(data?.message || fallback) };
+    return await parse<T>(res, fallback);
+  } catch {
+    return { ok: false, message: NET_ERR };
+  }
+}
+
+/** GET (doGet) for read-only actions: availability, tables. Always fetches fresh data. */
+async function get<T>(params: Record<string, string | number | undefined>, fallback: string): Promise<GasResult<T>> {
+  try {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    qs.set("_ts", String(Date.now()));
+    const res = await fetch(`${GAS_API_URL}?${qs.toString()}`, { method: "GET", cache: "no-store" });
+    return await parse<T>(res, fallback);
   } catch {
     return { ok: false, message: NET_ERR };
   }
@@ -44,29 +62,26 @@ export function zoneFromSheet(z: string): string {
 
 export type AvailabilityResult = {
   table_id: string; zone: string; capacity: number; date: string; time: string; people: number; message?: string;
+  available_tables?: { table_id: string; zone: string; capacity: number }[];
 };
 
 export type BookingQuery = { date: string; time: string; people: number; zone: string };
 
 export const checkAvailability = (q: BookingQuery) =>
-  call<AvailabilityResult>({ action: "availability", ...q }, "ไม่มีโต๊ะว่างในช่วงเวลาที่เลือก กรุณาเลือกเวลาหรือโซนใหม่");
+  get<AvailabilityResult>({ action: "availability", ...q }, "ไม่มีโต๊ะว่างในช่วงเวลาที่เลือก กรุณาเลือกเวลาหรือโซนใหม่");
 
 export type BookingResult = {
   booking_id: string; name?: string; phone?: string; table_id?: string; zone?: string;
   people?: number; booking_status?: string; date?: string; time?: string; message?: string;
 };
 
-export type TableStatusRow = { table_id: string; zone: string; capacity: number; occupied: boolean };
+export type TableStatusRow = { table_id: string; zone: string; capacity: number; status?: string; occupied: boolean };
 
 export type TablesStatusResult = { tables: TableStatusRow[] };
 
-/**
- * Per-table occupancy for a date/time (and optional zone) from the sheet.
- * Requires the Apps Script `tables` action — returns ok:false with the
- * "unknown action" message on deployments that do not have it yet.
- */
+/** Per-table occupancy for a date/time (and optional zone), read live from the sheet via GET. */
 export const fetchTablesStatus = (q: { date: string; time: string; zone?: string }) =>
-  call<TablesStatusResult>({ action: "tables", ...q }, "โหลดสถานะโต๊ะไม่สำเร็จ");
+  get<TablesStatusResult>({ action: "tables", ...q }, "โหลดสถานะโต๊ะไม่สำเร็จ");
 
 export const createBooking = (member_id: string, q: BookingQuery, opts?: { table_id?: string; name?: string; phone?: string }) =>
   call<BookingResult>({ action: "booking", member_id, ...q, ...opts }, "จองไม่สำเร็จ กรุณาลองใหม่");
