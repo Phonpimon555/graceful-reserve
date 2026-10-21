@@ -1,9 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
-  Archive, CheckCircle2, Download, Eye, EyeOff, Loader2, Pencil, RotateCcw, Trash2, XCircle,
+  AlertTriangle, Archive, CheckCircle2, Download, Eye, EyeOff, Loader2, Pencil, RefreshCw, RotateCcw, Trash2, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,6 +35,12 @@ import {
 } from "@/lib/reservations";
 import { canArchive, splitByArchive } from "@/lib/reservation-archive";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  allowedNextStatuses, canHideSheetBooking, type SheetBooking, type SheetWarning,
+} from "@/lib/sheet-bookings";
+import {
+  listSheetBookings, setSheetBookingHidden, updateSheetBookingStatus,
+} from "@/lib/sheet-bookings.functions";
 
 export const Route = createFileRoute("/admin/")({
   ssr: false,
@@ -76,6 +83,54 @@ function statusClass(s: ReservationStatus) {
 }
 
 type PendingAction = { res: Reservation; next: ReservationStatus } | null;
+type SheetStatusAction = { sb: SheetBooking; next: "confirmed" | "cancelled" | "completed" } | null;
+type SheetHideAction = { sb: SheetBooking; hide: boolean } | null;
+
+type RowStatus = ReservationStatus | "unknown";
+type RowCommon = {
+  key: string;
+  date: string | null; dateRaw: string;
+  slot: string | null; slotRaw: string;
+  tableId: string; zone: Zone | null; zoneRaw: string;
+  party: number | null; name: string; phone: string;
+  status: RowStatus; statusRaw: string; hidden: boolean;
+};
+type AdminRow = (RowCommon & { source: "db"; res: Reservation }) | (RowCommon & { source: "sheet"; sb: SheetBooking });
+
+const WARNING_LABEL: Record<SheetWarning, { th: string; en: string }> = {
+  placeholder: { th: "มีข้อความแม่แบบ เช่น <<name>>", en: "Contains template text such as <<name>>" },
+  error_value: { th: "มีค่าผิดพลาดจากชีต เช่น #NUM!", en: "Contains a sheet error such as #NUM!" },
+  missing_id: { th: "ไม่มีรหัสการจอง", en: "Missing booking ID" },
+  invalid_id: { th: "รหัสการจองไม่ถูกต้อง", en: "Invalid booking ID" },
+  duplicate_id: { th: "รหัสการจองซ้ำกับแถวอื่น", en: "Booking ID used by another row" },
+  invalid_date: { th: "วันที่ผิดรูปแบบ", en: "Invalid date" },
+  invalid_time: { th: "เวลาผิดรูปแบบ", en: "Invalid time" },
+  invalid_people: { th: "จำนวนคนผิดรูปแบบ", en: "Invalid party size" },
+  unknown_status: { th: "สถานะไม่รู้จัก", en: "Unknown status" },
+};
+
+const SHEET_ERROR: Record<string, { th: string; en: string }> = {
+  not_configured: { th: "ยังไม่ได้ตั้งค่า ADMIN_API_KEY บนเว็บไซต์", en: "ADMIN_API_KEY is not set on the website" },
+  script_key_missing: { th: "ยังไม่ได้ตั้งค่า ADMIN_API_KEY ใน Script Properties ของ Apps Script", en: "ADMIN_API_KEY is not set in the Apps Script properties" },
+  denied: { th: "คีย์ใน Script Properties ไม่ตรงกับคีย์ของเว็บไซต์", en: "The Apps Script key does not match the website key" },
+  network: { th: "เชื่อมต่อ Apps Script ไม่ได้", en: "Could not reach Apps Script" },
+  script_outdated: { th: "ต้อง Deploy Apps Script v4 ก่อนจึงจะเปลี่ยนสถานะได้", en: "Deploy Apps Script v4 first to change statuses" },
+  not_unique: { th: "ไม่พบรหัสการจองนี้ หรือมีรหัสซ้ำ — ไม่ได้แก้ไขข้อมูล", en: "Booking ID not found or duplicated — nothing changed" },
+  stale: { th: "สถานะในชีตเปลี่ยนไปแล้ว กรุณารีเฟรช — ไม่ได้แก้ไขข้อมูล", en: "The sheet changed. Please refresh — nothing changed" },
+  not_allowed: { th: "เปลี่ยนสถานะนี้ไม่ได้", en: "This status change is not allowed" },
+  mismatch: { th: "Apps Script ไม่ได้ยืนยันการเปลี่ยนสถานะ กรุณารีเฟรชตรวจสอบ", en: "Apps Script did not confirm the change. Please refresh" },
+};
+
+function sheetError(code: string, message: string, lang: "en" | "th") {
+  const known = SHEET_ERROR[code];
+  return known ? known[lang] : message;
+}
+
+function safeDate(d: string | null, raw: string, pattern: string) {
+  if (!d) return raw || "—";
+  const v = new Date(d);
+  return isNaN(v.getTime()) ? raw || d : format(v, pattern);
+}
 type ArchiveKind = "hide" | "restore" | "delete";
 type ArchiveAction = { res: Reservation; kind: ArchiveKind } | null;
 
@@ -133,6 +188,17 @@ function AdminReservations() {
 
   const tablesQ = useQuery({ queryKey: ["tables"], queryFn: fetchTables });
   const resQ = useQuery({ queryKey: ["allReservations"], queryFn: fetchAllReservations });
+  const listSheet = useServerFn(listSheetBookings);
+  const hideSheet = useServerFn(setSheetBookingHidden);
+  const updateSheet = useServerFn(updateSheetBookingStatus);
+  // Sheets is quota-limited: load on open and on the refresh button only.
+  const sheetQ = useQuery({
+    queryKey: ["sheetBookings"],
+    queryFn: () => listSheet(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
 
   useEffect(() => {
     const ch = supabase.channel("admin-res")
@@ -151,10 +217,14 @@ function AdminReservations() {
 
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [detail, setDetail] = useState<Reservation | null>(null);
+  const [sheetDetail, setSheetDetail] = useState<SheetBooking | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
   const [view, setView] = useState<"main" | "hidden">("main");
   const [archiveAction, setArchiveAction] = useState<ArchiveAction>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const [sheetAction, setSheetAction] = useState<SheetStatusAction>(null);
+  const [sheetHide, setSheetHide] = useState<SheetHideAction>(null);
+  const [sheetBusy, setSheetBusy] = useState(false);
 
   const tableMap = useMemo(() => {
     const m: Record<string, TableRow> = {};
@@ -162,36 +232,75 @@ function AdminReservations() {
     return m;
   }, [tablesQ.data]);
 
-  const { visible, hidden } = useMemo(() => splitByArchive(resQ.data ?? []), [resQ.data]);
+  const sheetData = sheetQ.data?.ok ? sheetQ.data : null;
+  const sheetFailure = sheetQ.data && !sheetQ.data.ok ? sheetQ.data : null;
+  const canUpdateSheet = sheetData?.canUpdateStatus === true;
+
+  const allRows = useMemo<AdminRow[]>(() => {
+    const out: AdminRow[] = (resQ.data ?? []).map((r) => ({
+      source: "db" as const, res: r, key: `db:${r.id}`,
+      date: r.reservation_date, dateRaw: r.reservation_date,
+      slot: r.time_slot, slotRaw: r.time_slot,
+      tableId: r.table_id, zone: tableMap[r.table_id]?.zone ?? null, zoneRaw: "",
+      party: r.party_size, name: r.customer_name, phone: r.phone,
+      status: r.status, statusRaw: r.status, hidden: !!r.is_archived,
+    }));
+    if (sheetData) {
+      const hiddenKeys = new Set(sheetData.hiddenKeys);
+      for (const sb of sheetData.rows) {
+        out.push({
+          source: "sheet", sb, key: `sheet:${sb.key}`,
+          date: sb.date, dateRaw: sb.date_raw, slot: sb.time_slot, slotRaw: sb.time_raw,
+          tableId: sb.table_id, zone: sb.zone, zoneRaw: sb.zone_raw,
+          party: sb.people, name: sb.name, phone: sb.phone,
+          status: sb.status, statusRaw: sb.status_raw, hidden: hiddenKeys.has(sb.key),
+        });
+      }
+    }
+    return out.sort((a, b) => {
+      if (a.date !== b.date) {
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return a.date < b.date ? 1 : -1;
+      }
+      return (a.slot ?? "").localeCompare(b.slot ?? "");
+    });
+  }, [resQ.data, sheetData, tableMap]);
+
+  const visible = useMemo(() => allRows.filter((r) => !r.hidden), [allRows]);
+  const hidden = useMemo(() => allRows.filter((r) => r.hidden), [allRows]);
   const viewRows = view === "hidden" ? hidden : visible;
+  const flagged = useMemo(
+    () => visible.flatMap((r) => (r.source === "sheet" && r.sb.warnings.length > 0 ? [r.sb] : [])),
+    [visible],
+  );
 
   const filtered = useMemo(() => {
     return viewRows.filter((r) => {
       if (search) {
         const q = search.trim().toLowerCase();
         if (
-          !r.customer_name.toLowerCase().includes(q)
+          !r.name.toLowerCase().includes(q)
           && !r.phone.includes(q)
-          && !r.table_id.toLowerCase().includes(q)
+          && !r.tableId.toLowerCase().includes(q)
+          && !(r.source === "sheet" && r.sb.booking_id.toLowerCase().includes(q))
         ) return false;
       }
-      if (date !== "all" && r.reservation_date !== date) return false;
-      if (slot !== "all" && r.time_slot !== slot) return false;
-      if (zone !== "all" && tableMap[r.table_id]?.zone !== zone) return false;
+      if (date !== "all" && r.date !== date) return false;
+      if (slot !== "all" && r.slot !== slot) return false;
+      if (zone !== "all" && r.zone !== zone) return false;
       if (status !== "all" && r.status !== status) return false;
       return true;
     });
-  }, [viewRows, search, date, slot, zone, status, tableMap]);
+  }, [viewRows, search, date, slot, zone, status]);
 
   const dates = useMemo(
-    () => Array.from(new Set(viewRows.map((r) => r.reservation_date))).sort().reverse(),
+    () => Array.from(new Set(viewRows.flatMap((r) => (r.date ? [r.date] : [])))).sort().reverse(),
     [viewRows],
   );
 
-  // Hidden rows are always cancelled/completed, so hiding never changes today's table counts.
   const today = format(new Date(), "yyyy-MM-dd");
-  const active = (resQ.data ?? []).filter((r) => r.status !== "cancelled");
-  const todayRes = active.filter((r) => r.reservation_date === today);
+  const todayRes = allRows.filter((r) => r.date === today && r.status !== "cancelled" && r.status !== "unknown");
   const totalTables = tablesQ.data?.filter((t) => t.status !== "disabled").length ?? 0;
   const occupancy = totalTables > 0 ? Math.round((todayRes.length / totalTables) * 100) : 0;
 
@@ -215,6 +324,54 @@ function AdminReservations() {
           : `Status updated to "${statusLabel(next, "en")}"`,
       );
       qc.invalidateQueries({ queryKey: ["allReservations"] });
+    }
+  };
+
+  const applySheetAction = async () => {
+    if (!sheetAction || sheetBusy) return;
+    const { sb, next } = sheetAction;
+    setSheetBusy(true);
+    try {
+      const out = await updateSheet({ data: { booking_id: sb.booking_id, next, expected_status: sb.status_raw } });
+      if (!out.ok) {
+        toast.error(sheetError(out.code, out.message, lang === "th" ? "th" : "en"));
+      } else {
+        toast.success(lang === "th"
+          ? `อัปเดตสถานะ ${out.booking_id} ในชีตเป็น "${out.booking_status}" แล้ว`
+          : `${out.booking_id} is now "${out.booking_status}" in the sheet`);
+        setSheetAction(null);
+      }
+    } catch {
+      toast.error(lang === "th" ? "เปลี่ยนสถานะไม่สำเร็จ" : "Could not change the status");
+    } finally {
+      setSheetBusy(false);
+      qc.invalidateQueries({ queryKey: ["sheetBookings"] });
+    }
+  };
+
+  const applySheetHide = async () => {
+    if (!sheetHide || sheetBusy) return;
+    const { sb, hide } = sheetHide;
+    setSheetBusy(true);
+    try {
+      const out = await hideSheet({ data: { key: sb.key, hidden: hide } });
+      if (!out.ok) {
+        toast.error(out.message === "active"
+          ? (lang === "th" ? "ซ่อนได้เฉพาะรายการที่เสร็จสิ้นหรือยกเลิกแล้ว" : "Only completed or cancelled bookings can be hidden")
+          : out.message === "not_found"
+            ? (lang === "th" ? "ไม่พบรายการนี้ในชีตแล้ว กรุณารีเฟรช" : "This row is no longer in the sheet. Please refresh")
+            : out.message);
+      } else {
+        toast.success(hide
+          ? (lang === "th" ? "นำรายการออกจากตารางแอดมินแล้ว (ข้อมูลในชีตยังอยู่)" : "Removed from the admin table (sheet unchanged)")
+          : (lang === "th" ? "กู้คืนรายการแล้ว" : "Booking restored"));
+        setSheetHide(null);
+      }
+    } catch {
+      toast.error(lang === "th" ? "ดำเนินการไม่สำเร็จ" : "Action failed");
+    } finally {
+      setSheetBusy(false);
+      qc.invalidateQueries({ queryKey: ["sheetBookings"] });
     }
   };
 
@@ -258,11 +415,13 @@ function AdminReservations() {
 
   const exportCsv = () => {
     const rows = [
-      ["ID", "Name", "Phone", "Table", "Zone", "Date", "Time", "Party", "Status", "Created", "Updated"],
-      ...filtered.map((r) => [
-        r.id, r.customer_name, r.phone, r.table_id, tableMap[r.table_id]?.zone ?? "",
-        r.reservation_date, r.time_slot, r.party_size, r.status, r.created_at, r.updated_at,
-      ]),
+      ["Source", "ID", "Name", "Phone", "Table", "Zone", "Date", "Time", "Party", "Status", "Created", "Updated", "Warnings"],
+      ...filtered.map((r) => r.source === "db"
+        ? ["database", r.res.id, r.name, r.phone, r.tableId, r.zone ?? "", r.dateRaw, r.slotRaw, r.party ?? "",
+          r.statusRaw, r.res.created_at, r.res.updated_at, ""]
+        : [r.sb.channel === "web" ? "sheet:web" : "sheet:line", r.sb.booking_id, r.name, r.phone, r.tableId,
+          r.zoneRaw, r.dateRaw, r.slotRaw, r.party ?? "", r.statusRaw, r.sb.created_at, r.sb.updated_at,
+          r.sb.warnings.join(" ")]),
     ];
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
@@ -270,6 +429,9 @@ function AdminReservations() {
     a.href = url; a.download = `reservations-${Date.now()}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
+
+  const loading = resQ.isLoading || sheetQ.isLoading;
+  const t = (th: string, en: string) => (lang === "th" ? th : en);
 
   return (
     <div className="min-h-screen bg-background">
@@ -282,9 +444,19 @@ function AdminReservations() {
               {lang === "th" ? "จัดการการจอง" : "Reservation Management"}
             </h1>
           </div>
-          <Button onClick={exportCsv} variant="outline" className="rounded-full">
-            <Download className="h-4 w-4 mr-2" /> {lang === "th" ? "ส่งออก CSV" : "Export CSV"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline" className="rounded-full"
+              disabled={sheetQ.isFetching}
+              onClick={() => { void sheetQ.refetch(); }}
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", sheetQ.isFetching && "animate-spin")} />
+              {t("รีเฟรชข้อมูลจากชีต", "Refresh from Sheets")}
+            </Button>
+            <Button onClick={exportCsv} variant="outline" className="rounded-full">
+              <Download className="h-4 w-4 mr-2" /> {lang === "th" ? "ส่งออก CSV" : "Export CSV"}
+            </Button>
+          </div>
         </div>
 
         <AdminTabs />
@@ -292,7 +464,7 @@ function AdminReservations() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <AdminStat
             label={lang === "th" ? "การจองทั้งหมด" : "Total reservations"}
-            value={resQ.data?.length ?? 0}
+            value={allRows.length}
             hint={lang === "th"
               ? `แสดงในตาราง ${visible.length} · ซ่อน ${hidden.length}`
               : `In table ${visible.length} · Hidden ${hidden.length}`}
@@ -301,6 +473,80 @@ function AdminReservations() {
           <AdminStat label={lang === "th" ? "ว่างวันนี้" : "Available today"} value={`${Math.max(totalTables - todayRes.length, 0)}/${totalTables}`} />
           <AdminStat label={lang === "th" ? "อัตราการใช้โต๊ะ" : "Occupancy"} value={`${occupancy}%`} />
         </div>
+
+        {(sheetFailure || sheetQ.error) && (
+          <Card role="alert" className="p-4 border-destructive/40 bg-destructive/5 shadow-soft text-sm font-sans">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+              <div className="space-y-1">
+                <div className="font-medium text-destructive">
+                  {t("ยังโหลดรายการจองจาก Google Sheets ไม่ได้", "Could not load bookings from Google Sheets")}
+                </div>
+                <div className="text-muted-foreground">
+                  {sheetFailure
+                    ? sheetError(sheetFailure.code, sheetFailure.message, lang === "th" ? "th" : "en")
+                    : t("ตรวจสอบสิทธิ์ผู้ดูแลไม่ผ่าน หรือเชื่อมต่อไม่ได้", "Admin check failed or the connection failed")}
+                  {" · "}
+                  {t("ตารางด้านล่างแสดงเฉพาะรายการในฐานข้อมูลเดิม", "The table below only shows the older database records")}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {sheetData && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-sans text-muted-foreground">
+            <span>
+              {t("Google Sheets (Data_Booking)", "Google Sheets (Data_Booking)")}: {sheetData.rows.length} {t("แถว", "rows")}
+              {" · "}{t("อัปเดตเมื่อ", "loaded")} {format(new Date(sheetData.fetchedAt), "HH:mm:ss")}
+            </span>
+            {!canUpdateSheet && (
+              <span className="text-gold-foreground">
+                {t("เปลี่ยนสถานะจากหน้านี้ได้หลังติดตั้ง Apps Script v4", "Status changes unlock after Apps Script v4 is deployed")}
+              </span>
+            )}
+          </div>
+        )}
+
+        {view === "main" && flagged.length > 0 && (
+          <Card className="p-4 border-gold/60 bg-gold/10 shadow-soft text-sm font-sans">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-gold-foreground" />
+              <div className="space-y-2 min-w-0">
+                <div className="font-medium">
+                  {t(
+                    `พบ ${flagged.length} รายการในชีตที่ข้อมูลไม่ครบหรือผิดรูปแบบ`,
+                    `${flagged.length} sheet rows have missing or malformed data`,
+                  )}
+                </div>
+                <div className="text-muted-foreground">
+                  {t(
+                    "ระบบไม่ได้แก้ไขข้อมูลจริงให้อัตโนมัติ กรุณาตรวจสอบในชีต Data_Booking รายการที่ระบุรหัสการจองไม่ได้แน่นอนจะเปลี่ยนสถานะไม่ได้",
+                    "Nothing was changed automatically. Please check Data_Booking. Rows without a single unique booking ID cannot have their status changed.",
+                  )}
+                </div>
+                <ul className="space-y-1">
+                  {flagged.slice(0, 8).map((sb) => (
+                    <li key={sb.key} className="flex flex-wrap gap-x-2 text-xs">
+                      <button type="button" className="underline underline-offset-2 hover:text-primary"
+                        onClick={() => setSheetDetail(sb)}>
+                        {sb.row ? `${t("แถว", "Row")} ${sb.row} · ` : ""}{sb.booking_id || t("(ไม่มีรหัส)", "(no ID)")}
+                      </button>
+                      <span className="text-muted-foreground">
+                        {sb.warnings.map((w) => WARNING_LABEL[w][lang === "th" ? "th" : "en"]).join(" · ")}
+                      </span>
+                    </li>
+                  ))}
+                  {flagged.length > 8 && (
+                    <li className="text-xs text-muted-foreground">
+                      {t(`และอีก ${flagged.length - 8} รายการ`, `and ${flagged.length - 8} more`)}
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </Card>
+        )}
 
         <div role="tablist" aria-label={lang === "th" ? "มุมมองรายการจอง" : "Reservation view"}
           className="inline-flex rounded-full border border-border/70 bg-card p-1 shadow-soft">
@@ -332,7 +578,7 @@ function AdminReservations() {
         <Card className="p-4 shadow-soft border-border/60">
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <Input
-              placeholder={lang === "th" ? "ค้นหาชื่อ / เบอร์โทร / โต๊ะ" : "Search name / phone / table"}
+              placeholder={lang === "th" ? "ค้นหาชื่อ / เบอร์โทร / โต๊ะ / รหัสจอง" : "Search name / phone / table / booking ID"}
               value={search} onChange={(e) => setSearch(e.target.value)} className="font-sans"
             />
             <Select value={date} onValueChange={setDate}>
@@ -340,7 +586,7 @@ function AdminReservations() {
               <SelectContent>
                 <SelectItem value="all">{lang === "th" ? "ทุกวันที่" : "All dates"}</SelectItem>
                 {dates.map((d) => (
-                  <SelectItem key={d} value={d}>{format(new Date(d), "EEE, MMM d, yyyy")}</SelectItem>
+                  <SelectItem key={d} value={d}>{safeDate(d, d, "EEE, MMM d, yyyy")}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -387,11 +633,11 @@ function AdminReservations() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {resQ.isLoading ? (
+                {loading ? (
                   <tr><td colSpan={9} className="py-16 text-center">
                     <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
                   </td></tr>
-                ) : resQ.error ? (
+                ) : resQ.error && !sheetData ? (
                   <tr><td colSpan={9} className="py-12 text-center text-destructive">
                     {lang === "th" ? "โหลดข้อมูลไม่สำเร็จ" : "Failed to load reservations"}
                   </td></tr>
@@ -412,90 +658,121 @@ function AdminReservations() {
                       ? (lang === "th" ? "ไม่พบรายการที่ตรงกับการค้นหา" : "No reservations match your filters")
                       : (lang === "th" ? "ยังไม่มีรายการจอง" : "No reservations yet")}
                   </td></tr>
-                ) : filtered.map((r) => (
-                  <tr key={r.id} className="hover:bg-muted/30 transition">
+                ) : filtered.map((r) => {
+                  const warn = r.source === "sheet" && r.sb.warnings.length > 0;
+                  const sourceLabel = r.source === "db"
+                    ? t("ฐานข้อมูลเดิม", "Database")
+                    : r.sb.channel === "web" ? t("เว็บไซต์ · ชีต", "Website · Sheet") : t("LINE · ชีต", "LINE · Sheet");
+                  return (
+                  <tr key={r.key} className={cn("hover:bg-muted/30 transition", warn && "bg-gold/5")}>
                     <td className="px-4 py-3 whitespace-nowrap font-sans tabular-nums">
-                      {format(new Date(r.reservation_date), "MMM d, yyyy")}
+                      <span className="inline-flex items-center gap-1.5">
+                        {warn && (
+                          <AlertTriangle className="h-3.5 w-3.5 text-gold-foreground"
+                            aria-label={t("ข้อมูลผิดรูปแบบ", "Malformed data")} />
+                        )}
+                        <span className={cn(!r.date && "text-muted-foreground")}>{safeDate(r.date, r.dateRaw, "MMM d, yyyy")}</span>
+                      </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap font-sans tabular-nums font-medium">{r.time_slot}</td>
-                    <td className="px-4 py-3 font-display text-base">{r.table_id}</td>
+                    <td className={cn("px-4 py-3 whitespace-nowrap font-sans tabular-nums font-medium", !r.slot && "text-muted-foreground font-normal")}>
+                      {r.slot ?? (r.slotRaw || "—")}
+                    </td>
+                    <td className="px-4 py-3 font-display text-base">{r.tableId || "—"}</td>
                     <td className="px-4 py-3">
                       <span className={cn(
                         "inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium",
-                        tableMap[r.table_id]?.zone === "VIP" ? "bg-gold/30 text-gold-foreground"
-                        : tableMap[r.table_id]?.zone === "Riverside" ? "bg-success/15 text-success"
+                        r.zone === "VIP" ? "bg-gold/30 text-gold-foreground"
+                        : r.zone === "Riverside" ? "bg-success/15 text-success"
                         : "bg-accent text-accent-foreground",
                       )}>
-                        {tableMap[r.table_id] ? zoneLabel(tableMap[r.table_id].zone, lang) : "—"}
+                        {r.zone ? zoneLabel(r.zone, lang) : (r.zoneRaw || "—")}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-sans tabular-nums">{r.party_size}</td>
-                    <td className="px-4 py-3">{r.customer_name}</td>
-                    <td className="px-4 py-3 text-muted-foreground font-sans tabular-nums">{r.phone}</td>
+                    <td className="px-4 py-3 font-sans tabular-nums">{r.party ?? "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", statusClass(r.status))}>
-                        {statusLabel(r.status, lang)}
+                      <div>{r.name || "—"}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-sans">
+                        {sourceLabel}{r.source === "sheet" && r.sb.booking_id ? ` · ${r.sb.booking_id}` : ""}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground font-sans tabular-nums">{r.phone || "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn(
+                        "inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium",
+                        r.status === "unknown" ? "bg-muted text-muted-foreground" : statusClass(r.status),
+                      )}>
+                        {r.status === "unknown" ? (r.statusRaw || "—") : statusLabel(r.status, lang)}
                       </span>
                     </td>
                     <td className="px-4 py-3">
+                      {r.source === "sheet" ? (
+                        <SheetActions
+                          sb={r.sb} hidden={r.hidden} canUpdate={canUpdateSheet}
+                          onDetail={() => setSheetDetail(r.sb)}
+                          onStatus={(next) => setSheetAction({ sb: r.sb, next })}
+                          onHide={(hide) => setSheetHide({ sb: r.sb, hide })}
+                        />
+                      ) : (
                       <div className="flex justify-end gap-1">
-                        {r.status === "pending" || r.status === "confirmed" ? (
+                        {r.res.status === "pending" || r.res.status === "confirmed" ? (
                           <>
-                            <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
+                            <Button size="sm" variant="ghost" onClick={() => setEditing(r.res)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            {r.status === "pending" ? (
+                            {r.res.status === "pending" ? (
                               <Button size="sm" variant="ghost" className="text-success hover:bg-success/10"
-                                onClick={() => setPendingAction({ res: r, next: "confirmed" })}>
+                                onClick={() => setPendingAction({ res: r.res, next: "confirmed" })}>
                                 <CheckCircle2 className="h-4 w-4" />
                               </Button>
                             ) : (
                               <Button size="sm" variant="ghost" className="text-success hover:bg-success/10"
-                                onClick={() => setPendingAction({ res: r, next: "completed" })}>
+                                onClick={() => setPendingAction({ res: r.res, next: "completed" })}>
                                 <CheckCircle2 className="h-4 w-4" />
                               </Button>
                             )}
                             <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10"
-                              onClick={() => setPendingAction({ res: r, next: "cancelled" })}>
+                              onClick={() => setPendingAction({ res: r.res, next: "cancelled" })}>
                               <XCircle className="h-4 w-4" />
                             </Button>
                           </>
                         ) : (
                           <>
-                            <Button size="sm" variant="ghost" onClick={() => setDetail(r)}
+                            <Button size="sm" variant="ghost" onClick={() => setDetail(r.res)}
                               title={lang === "th" ? "ดูรายละเอียด" : "View details"}
                               aria-label={lang === "th" ? "ดูรายละเอียด" : "View details"}>
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {canArchive(r.status) && (view === "hidden" ? (
+                            {canArchive(r.res.status) && (view === "hidden" ? (
                               <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10"
                                 title={lang === "th" ? "กู้คืน" : "Restore"}
                                 aria-label={lang === "th" ? "กู้คืน" : "Restore"}
-                                onClick={() => setArchiveAction({ res: r, kind: "restore" })}>
+                                onClick={() => setArchiveAction({ res: r.res, kind: "restore" })}>
                                 <RotateCcw className="h-4 w-4" />
                               </Button>
                             ) : (
                               <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-primary"
                                 title={lang === "th" ? "ซ่อนรายการ" : "Hide"}
                                 aria-label={lang === "th" ? "ซ่อนรายการ" : "Hide"}
-                                onClick={() => setArchiveAction({ res: r, kind: "hide" })}>
+                                onClick={() => setArchiveAction({ res: r.res, kind: "hide" })}>
                                 <EyeOff className="h-4 w-4" />
                               </Button>
                             ))}
-                            {canArchive(r.status) && (
+                            {canArchive(r.res.status) && (
                               <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10"
                                 title={lang === "th" ? "ลบถาวร" : "Delete permanently"}
                                 aria-label={lang === "th" ? "ลบถาวร" : "Delete permanently"}
-                                onClick={() => setArchiveAction({ res: r, kind: "delete" })}>
+                                onClick={() => setArchiveAction({ res: r.res, kind: "delete" })}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
                           </>
                         )}
                       </div>
+                      )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -520,6 +797,68 @@ function AdminReservations() {
               {lang === "th" ? "ยืนยัน" : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!sheetAction} onOpenChange={(o) => { if (!o && !sheetBusy) setSheetAction(null); }}>
+        <AlertDialogContent>
+          {sheetAction && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("ยืนยันการเปลี่ยนสถานะในชีต", "Change status in the sheet?")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t(
+                    `เปลี่ยนสถานะของ ${sheetAction.sb.booking_id} เป็น "${statusLabel(sheetAction.next, "th")}" ระบบจะแก้เฉพาะคอลัมน์ booking_status และ updated_at ของรายการนี้ในชีต Data_Booking`,
+                    `Set ${sheetAction.sb.booking_id} to "${statusLabel(sheetAction.next, "en")}". Only booking_status and updated_at of this row in Data_Booking will change.`,
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <SheetSummary sb={sheetAction.sb} />
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={sheetBusy}>{t("ยกเลิก", "Cancel")}</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={sheetBusy}
+                  onClick={(e) => { e.preventDefault(); void applySheetAction(); }}
+                  className={cn(sheetAction.next === "cancelled" && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+                >
+                  {sheetBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {t("ยืนยัน", "Confirm")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!sheetHide} onOpenChange={(o) => { if (!o && !sheetBusy) setSheetHide(null); }}>
+        <AlertDialogContent>
+          {sheetHide && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {sheetHide.hide
+                    ? t("นำรายการออกจากตารางแอดมิน", "Remove from the admin table?")
+                    : t("ยืนยันการกู้คืนรายการจอง", "Restore this booking?")}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {sheetHide.hide
+                    ? t(
+                      "รายการจะหายไปจากตารางแอดมินเท่านั้น ข้อมูลใน Google Sheets ยังอยู่เหมือนเดิม และกู้คืนได้จากแท็บ “รายการที่ซ่อน”",
+                      "It disappears from the admin table only. The Google Sheets row stays as it is, and you can restore it from the “Hidden” tab.",
+                    )
+                    : t("ต้องการนำรายการนี้กลับมาแสดงในตารางแอดมินใช่หรือไม่?", "Show this booking in the admin table again?")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <SheetSummary sb={sheetHide.sb} />
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={sheetBusy}>{t("ยกเลิก", "Cancel")}</AlertDialogCancel>
+                <AlertDialogAction disabled={sheetBusy} onClick={(e) => { e.preventDefault(); void applySheetHide(); }}>
+                  {sheetBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {sheetHide.hide ? t("ยืนยันการนำออก", "Remove") : t("ยืนยันการกู้คืน", "Restore")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
         </AlertDialogContent>
       </AlertDialog>
 
@@ -577,6 +916,7 @@ function AdminReservations() {
       </AlertDialog>
 
       <DetailDialog res={detail} onClose={() => setDetail(null)} tableMap={tableMap} />
+      <SheetDetailDialog sb={sheetDetail} onClose={() => setSheetDetail(null)} />
 
       <EditDialog
         res={editing}
@@ -585,6 +925,137 @@ function AdminReservations() {
         onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["allReservations"] }); }}
       />
     </div>
+  );
+}
+
+function SheetActions({
+  sb, hidden, canUpdate, onDetail, onStatus, onHide,
+}: {
+  sb: SheetBooking;
+  hidden: boolean;
+  canUpdate: boolean;
+  onDetail: () => void;
+  onStatus: (next: "confirmed" | "cancelled" | "completed") => void;
+  onHide: (hide: boolean) => void;
+}) {
+  const { lang } = useLang();
+  const next = sb.identifiable ? allowedNextStatuses(sb.status) : [];
+  const forward = next.find((s) => s === "confirmed" || s === "completed") as "confirmed" | "completed" | undefined;
+  return (
+    <div className="flex justify-end gap-1">
+      {canUpdate && !hidden && forward && (
+        <Button size="sm" variant="ghost" className="text-success hover:bg-success/10"
+          title={statusLabel(forward, lang)} aria-label={statusLabel(forward, lang)}
+          onClick={() => onStatus(forward)}>
+          <CheckCircle2 className="h-4 w-4" />
+        </Button>
+      )}
+      {canUpdate && !hidden && next.includes("cancelled") && (
+        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10"
+          title={statusLabel("cancelled", lang)} aria-label={statusLabel("cancelled", lang)}
+          onClick={() => onStatus("cancelled")}>
+          <XCircle className="h-4 w-4" />
+        </Button>
+      )}
+      <Button size="sm" variant="ghost" onClick={onDetail}
+        title={lang === "th" ? "ดูรายละเอียด" : "View details"}
+        aria-label={lang === "th" ? "ดูรายละเอียด" : "View details"}>
+        <Eye className="h-4 w-4" />
+      </Button>
+      {hidden ? (
+        <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10"
+          title={lang === "th" ? "กู้คืน" : "Restore"} aria-label={lang === "th" ? "กู้คืน" : "Restore"}
+          onClick={() => onHide(false)}>
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      ) : canHideSheetBooking(sb) && (
+        <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-primary"
+          title={lang === "th" ? "นำออกจากตารางแอดมิน" : "Remove from admin table"}
+          aria-label={lang === "th" ? "นำออกจากตารางแอดมิน" : "Remove from admin table"}
+          onClick={() => onHide(true)}>
+          <EyeOff className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function SheetSummary({ sb }: { sb: SheetBooking }) {
+  const { lang } = useLang();
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-sm font-sans space-y-1">
+      <div className="flex justify-between gap-3">
+        <span className="text-muted-foreground">{lang === "th" ? "รหัสการจอง" : "Booking ID"}</span>
+        <span className="tabular-nums text-xs break-all text-right">
+          {sb.booking_id || "—"}{sb.row ? ` · ${lang === "th" ? "แถว" : "row"} ${sb.row}` : ""}
+        </span>
+      </div>
+      <div className="flex justify-between gap-3">
+        <span className="text-muted-foreground">{lang === "th" ? "ลูกค้า" : "Customer"}</span>
+        <span className="text-right">{sb.name || "—"} · {sb.phone || "—"}</span>
+      </div>
+      <div className="flex justify-between gap-3">
+        <span className="text-muted-foreground">{lang === "th" ? "วันเวลา / โต๊ะ" : "Date / table"}</span>
+        <span className="tabular-nums text-right">
+          {safeDate(sb.date, sb.date_raw, "MMM d, yyyy")} · {sb.time_slot ?? (sb.time_raw || "—")} · {sb.table_id || "—"}
+        </span>
+      </div>
+      <div className="flex justify-between gap-3">
+        <span className="text-muted-foreground">{lang === "th" ? "สถานะในชีต" : "Sheet status"}</span>
+        <span>{sb.status_raw || "—"}</span>
+      </div>
+      {sb.warnings.length > 0 && (
+        <div className="pt-1 text-xs text-gold-foreground flex gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span>{sb.warnings.map((w) => WARNING_LABEL[w][lang === "th" ? "th" : "en"]).join(" · ")}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SheetDetailDialog({ sb, onClose }: { sb: SheetBooking | null; onClose: () => void }) {
+  const { lang } = useLang();
+  const th = lang === "th";
+  return (
+    <Dialog open={!!sb} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-2xl text-primary">
+            {th ? "รายละเอียดการจอง (Google Sheets)" : "Booking detail (Google Sheets)"}
+          </DialogTitle>
+        </DialogHeader>
+        {sb && (
+          <dl className="space-y-2 text-sm">
+            <Row k={th ? "รหัสการจอง" : "Booking ID"} v={sb.booking_id || "—"} />
+            <Row k={th ? "แถวในชีต" : "Sheet row"} v={sb.row ? String(sb.row) : "—"} />
+            <Row k={th ? "ช่องทาง" : "Channel"} v={sb.channel === "web" ? (th ? "เว็บไซต์" : "Website") : "LINE"} />
+            <Row k={th ? "รหัสสมาชิก" : "Member ID"} v={sb.member_id || "—"} />
+            <Row k={th ? "ชื่อผู้จอง" : "Name"} v={sb.name || "—"} />
+            <Row k={th ? "เบอร์โทร" : "Phone"} v={sb.phone || "—"} />
+            <Row k={th ? "วันที่" : "Date"} v={safeDate(sb.date, sb.date_raw, "EEE, MMM d, yyyy")} />
+            <Row k={th ? "เวลา" : "Time"} v={sb.time_slot ?? (sb.time_raw || "—")} />
+            <Row k={th ? "จำนวนผู้เข้าร่วม" : "Party size"} v={sb.people !== null ? String(sb.people) : "—"} />
+            <Row k={th ? "โต๊ะ" : "Table"} v={sb.table_id || "—"} />
+            <Row k={th ? "โซน" : "Zone"} v={sb.zone ? zoneLabel(sb.zone, lang) : (sb.zone_raw || "—")} />
+            <Row k={th ? "สถานะในชีต" : "Sheet status"} v={sb.status_raw || "—"} />
+            <Row k={th ? "สร้างเมื่อ" : "Created"} v={sb.created_at || "—"} />
+            <Row k={th ? "แก้ไขล่าสุด" : "Last updated"} v={sb.updated_at || "—"} />
+            {sb.warnings.length > 0 && (
+              <div className="rounded-xl border border-gold/60 bg-gold/10 p-3 text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-medium">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {th ? "ข้อมูลที่ต้องตรวจสอบในชีต (ระบบไม่ได้แก้ให้)" : "Check in the sheet (not changed automatically)"}
+                </div>
+                <ul className="list-disc pl-5">
+                  {sb.warnings.map((w) => <li key={w}>{WARNING_LABEL[w][th ? "th" : "en"]}</li>)}
+                </ul>
+              </div>
+            )}
+          </dl>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
