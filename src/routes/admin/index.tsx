@@ -290,16 +290,49 @@ function AdminReservations() {
         <AdminTabs />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <AdminStat label={lang === "th" ? "การจองทั้งหมด" : "Total reservations"} value={resQ.data?.length ?? 0} />
+          <AdminStat
+            label={lang === "th" ? "การจองทั้งหมด" : "Total reservations"}
+            value={resQ.data?.length ?? 0}
+            hint={lang === "th"
+              ? `แสดงในตาราง ${visible.length} · ซ่อน ${hidden.length}`
+              : `In table ${visible.length} · Hidden ${hidden.length}`}
+          />
           <AdminStat label={lang === "th" ? "จองแล้ววันนี้" : "Reserved today"} value={`${todayRes.length}/${totalTables}`} />
           <AdminStat label={lang === "th" ? "ว่างวันนี้" : "Available today"} value={`${Math.max(totalTables - todayRes.length, 0)}/${totalTables}`} />
           <AdminStat label={lang === "th" ? "อัตราการใช้โต๊ะ" : "Occupancy"} value={`${occupancy}%`} />
         </div>
 
+        <div role="tablist" aria-label={lang === "th" ? "มุมมองรายการจอง" : "Reservation view"}
+          className="inline-flex rounded-full border border-border/70 bg-card p-1 shadow-soft">
+          {([
+            { key: "main", th: "รายการจอง", en: "Reservations", count: visible.length, Icon: Eye },
+            { key: "hidden", th: "รายการที่ซ่อน", en: "Hidden", count: hidden.length, Icon: Archive },
+          ] as const).map(({ key, th, en, count, Icon }) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={view === key}
+              onClick={() => switchView(key)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-sans transition",
+                view === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-primary",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {lang === "th" ? th : en}
+              <span className={cn(
+                "rounded-full px-2 text-[11px] tabular-nums",
+                view === key ? "bg-primary-foreground/20" : "bg-muted",
+              )}>{count}</span>
+            </button>
+          ))}
+        </div>
+
         <Card className="p-4 shadow-soft border-border/60">
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <Input
-              placeholder={lang === "th" ? "ค้นหาชื่อ / เบอร์โทร" : "Search name / phone"}
+              placeholder={lang === "th" ? "ค้นหาชื่อ / เบอร์โทร / โต๊ะ" : "Search name / phone / table"}
               value={search} onChange={(e) => setSearch(e.target.value)} className="font-sans"
             />
             <Select value={date} onValueChange={setDate}>
