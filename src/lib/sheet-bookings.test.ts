@@ -1,8 +1,8 @@
 /// <reference types="bun" />
 import { describe, expect, test } from "bun:test";
 import {
-  allowedNextStatuses, canChangeStatus, canHideSheetBooking, normalizeSheetBookings,
-  normalizeSheetStatus, sheetStatusValue,
+  allowedNextStatuses, canChangeStatus, canHideSheetBooking, classifyGasAdminReply, interpretStatusUpdateReply,
+  normalizeSheetBookings, normalizeSheetStatus, sheetStatusValue, statusUpdateWarning,
 } from "./sheet-bookings";
 
 // Rows shaped like the live Apps Script `get_bookings` output.
@@ -48,4 +48,44 @@ describe("admin status rules", () => {
   test("English rows keep English status text", () => expect(sheetStatusValue("completed", "Confirmed")).toBe("Completed"));
   test("an active identifiable booking cannot be hidden", () => expect(canHideSheetBooking(rows[3])).toBe(false));
   test("an unidentifiable row can be hidden from the admin table", () => expect(canHideSheetBooking(rows[1])).toBe(true));
+});
+
+describe("admin status-change replies from Apps Script", () => {
+  const partial = { status: "error", code: "partial_write", message: "เขียนไม่ครบ: booking_status ของแถว 2 เปลี่ยนเป็น \"Cancelled\" แล้ว (คุณไม่มีสิทธิ์แก้ไขช่วงที่มีการป้องกัน)" };
+  const reply = (d: Record<string, unknown>) => interpretStatusUpdateReply(classifyGasAdminReply(d), "BK7984", "Cancelled");
+
+  test("partial_write is not a success", () => expect(reply(partial).ok).toBe(false));
+  test("partial_write keeps the script's own message", () => {
+    const o = reply(partial);
+    expect(!o.ok && o.message).toBe(partial.message);
+  });
+  test("a permission word inside a coded script error is not shown as a key mismatch", () => {
+    const o = reply(partial);
+    expect(!o.ok && o.code).toBe("script_error");
+  });
+  test("write_unverified is not a success", () => {
+    expect(reply({ status: "error", code: "write_unverified", message: "ยืนยันไม่ได้" }).ok).toBe(false);
+  });
+  test("the script's exact wrong-key message counts as a key mismatch", () => {
+    expect(classifyGasAdminReply({ status: "error", message: "ไม่มีสิทธิ์แก้ไขรายการจอง" })).toMatchObject({ ok: false, code: "denied" });
+  });
+  test("another error mentioning permission without a code is not a key mismatch", () => {
+    expect(classifyGasAdminReply({ status: "error", message: "Exception: คุณไม่มีสิทธิ์เข้าถึงไฟล์" })).toMatchObject({ ok: false, code: "error" });
+  });
+  test("a reply for a different booking is not a success", () => {
+    expect(reply({ status: "success", booking_id: "BK0001", booking_status: "Cancelled" }).ok).toBe(false);
+  });
+  test("booking changed but table not updated is a success with a table warning", () => {
+    const o = reply({ status: "success", booking_id: "BK7984", booking_status: "Cancelled", table_status_updated: false, table_status_result: "table_not_found", message: "อัปเดตสถานะการจองสำเร็จ แต่สถานะโต๊ะ: ไม่พบโต๊ะ" });
+    expect(o.ok).toBe(true);
+    expect(statusUpdateWarning(o)).toBe("table");
+  });
+  test("booking and table both updated needs no warning", () => {
+    const o = reply({ status: "success", booking_id: "BK7984", booking_status: "Cancelled", table_status_updated: true, updated_at_verified: true });
+    expect(statusUpdateWarning(o)).toBeNull();
+  });
+  test("updated_at written in an unverifiable format gets a warning", () => {
+    const o = reply({ status: "success", booking_id: "BK7984", booking_status: "Cancelled", table_status_updated: true, updated_at_verified: false });
+    expect(statusUpdateWarning(o)).toBe("updated_at");
+  });
 });
