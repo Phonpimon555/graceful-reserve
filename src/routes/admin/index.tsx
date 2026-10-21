@@ -36,7 +36,7 @@ import {
 import { canArchive } from "@/lib/reservation-archive";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  allowedNextStatuses, canHideSheetBooking, type SheetBooking, type SheetWarning,
+  allowedNextStatuses, canHideSheetBooking, statusUpdateWarning, type SheetBooking, type SheetWarning,
 } from "@/lib/sheet-bookings";
 import {
   listSheetBookings, setSheetBookingHidden, updateSheetBookingStatus,
