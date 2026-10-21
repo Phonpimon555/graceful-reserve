@@ -179,3 +179,77 @@ export function sheetStatusValue(next: SheetStatus, currentRaw: string): string 
 export function canHideSheetBooking(b: Pick<SheetBooking, "identifiable" | "status">) {
   return !b.identifiable || b.status === "cancelled" || b.status === "completed";
 }
+
+// ---------------------------------------------------------------------------
+// Reading Apps Script admin replies (pure; used by the server and tested).
+// ---------------------------------------------------------------------------
+
+export type GasAdminResponse = { status?: string; message?: string; [k: string]: unknown };
+
+export type GasAdminFailureCode =
+  | "not_configured" | "script_key_missing" | "denied" | "network" | "bad_response" | "script_error" | "error";
+
+export type GasAdminResult =
+  | { ok: true; data: GasAdminResponse }
+  | { ok: false; code: GasAdminFailureCode; message: string; scriptCode?: string };
+
+/** Exact key/permission messages the Apps Script admin actions send (no `code` field). */
+const SCRIPT_KEY_MISSING_MESSAGES = ["ยังไม่ได้ตั้งค่า ADMIN_API_KEY ใน Script Properties"];
+const SCRIPT_DENIED_MESSAGES = ["ไม่มีสิทธิ์ดูรายการจอง", "ไม่มีสิทธิ์แก้ไขรายการจอง"];
+
+/**
+ * Classify a parsed Apps Script reply. When the script sends its own `code`,
+ * its message is the real outcome and is shown as is — never guessed from words.
+ * Key problems are recognised only by the script's exact messages.
+ */
+export function classifyGasAdminReply(data: GasAdminResponse): GasAdminResult {
+  if (data.status === "success") return { ok: true, data };
+  const message = String(data.message ?? "").trim() || "Apps Script error";
+  const scriptCode = typeof data["code"] === "string" ? data["code"].trim() : "";
+  if (scriptCode) return { ok: false, code: "script_error", scriptCode, message };
+  if (SCRIPT_KEY_MISSING_MESSAGES.includes(message)) return { ok: false, code: "script_key_missing", message };
+  if (SCRIPT_DENIED_MESSAGES.includes(message)) return { ok: false, code: "denied", message };
+  return { ok: false, code: "error", message };
+}
+
+export type StatusUpdateOutcome =
+  | {
+      ok: true;
+      booking_id: string;
+      booking_status: string;
+      updated_at: string;
+      /** null when the script did not report it. */
+      table_status_updated: boolean | null;
+      table_status_result: string;
+      updated_at_verified: boolean | null;
+      script_message: string;
+    }
+  | { ok: false; code: string; message: string; scriptCode?: string };
+
+/** The booking status counts as changed only when the script confirms this exact booking and value. */
+export function interpretStatusUpdateReply(r: GasAdminResult, bookingId: string, value: string): StatusUpdateOutcome {
+  if (!r.ok) return { ok: false, code: r.code, message: r.message, scriptCode: r.scriptCode };
+  const d = r.data;
+  if (String(d["booking_status"] ?? "") !== value || String(d["booking_id"] ?? "") !== bookingId) {
+    return { ok: false, code: "mismatch", message: "Apps Script reply did not confirm the change" };
+  }
+  const bool = (v: unknown) => (typeof v === "boolean" ? v : null);
+  return {
+    ok: true,
+    booking_id: bookingId,
+    booking_status: value,
+    updated_at: String(d["updated_at"] ?? ""),
+    table_status_updated: bool(d["table_status_updated"]),
+    table_status_result: String(d["table_status_result"] ?? ""),
+    updated_at_verified: bool(d["updated_at_verified"]),
+    script_message: String(d["message"] ?? ""),
+  };
+}
+
+/** A confirmed status change that still needs a separate yellow warning. */
+export function statusUpdateWarning(o: StatusUpdateOutcome): "table" | "updated_at" | null {
+  if (!o.ok) return null;
+  if (o.table_status_updated === false) return "table";
+  if (o.updated_at_verified === false) return "updated_at";
+  return null;
+}

@@ -2,6 +2,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { GAS_API_URL } from "@/lib/auth/gasAuth";
+import { classifyGasAdminReply, type GasAdminResponse, type GasAdminResult } from "@/lib/sheet-bookings";
 
 const OWNER_EMAIL = "phonpimon.y@ku.th";
 
@@ -17,11 +18,7 @@ export async function assertAdmin(ctx: {
   if (error || data !== true) throw new Error("Forbidden");
 }
 
-export type GasAdminResponse = { status?: string; message?: string; [k: string]: unknown };
-
-export type GasAdminResult =
-  | { ok: true; data: GasAdminResponse }
-  | { ok: false; code: "not_configured" | "script_key_missing" | "denied" | "network" | "bad_response" | "error"; message: string };
+export type { GasAdminResponse, GasAdminResult } from "@/lib/sheet-bookings";
 
 /** POST one admin action. The key is added here and never returned to the browser. */
 export async function callGasAdmin(body: Record<string, unknown>): Promise<GasAdminResult> {
@@ -45,9 +42,5 @@ export async function callGasAdmin(body: Record<string, unknown>): Promise<GasAd
     console.error(`Apps Script returned non-JSON [${res.status}]: ${textBody.slice(0, 300)}`);
     return { ok: false, code: "bad_response", message: `Apps Script returned an unexpected response (${res.status})` };
   }
-  if (data.status === "success") return { ok: true, data };
-  const message = String(data.message ?? "Apps Script error");
-  if (message.includes("ADMIN_API_KEY")) return { ok: false, code: "script_key_missing", message };
-  if (message.includes("ไม่มีสิทธิ์")) return { ok: false, code: "denied", message };
-  return { ok: false, code: "error", message };
+  return classifyGasAdminReply(data);
 }

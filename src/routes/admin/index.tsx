@@ -36,7 +36,7 @@ import {
 import { canArchive } from "@/lib/reservation-archive";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  allowedNextStatuses, canHideSheetBooking, type SheetBooking, type SheetWarning,
+  allowedNextStatuses, canHideSheetBooking, statusUpdateWarning, type SheetBooking, type SheetWarning,
 } from "@/lib/sheet-bookings";
 import {
   listSheetBookings, setSheetBookingHidden, updateSheetBookingStatus,
@@ -114,7 +114,10 @@ const SHEET_ERROR: Record<string, { th: string; en: string }> = {
   script_key_missing: { th: "ยังไม่ได้ตั้งค่า ADMIN_API_KEY ใน Script Properties ของ Apps Script", en: "ADMIN_API_KEY is not set in the Apps Script properties" },
   denied: { th: "คีย์ใน Script Properties ไม่ตรงกับคีย์ของเว็บไซต์", en: "The Apps Script key does not match the website key" },
   network: { th: "เชื่อมต่อ Apps Script ไม่ได้", en: "Could not reach Apps Script" },
-  script_outdated: { th: "ต้อง Deploy Apps Script v4 ก่อนจึงจะเปลี่ยนสถานะได้", en: "Deploy Apps Script v4 first to change statuses" },
+  script_outdated: {
+    th: "Apps Script ที่ใช้งานอยู่ยังไม่รองรับการเปลี่ยนสถานะ — ต้อง Deploy ไฟล์ร่าง v3.4 ก่อน (ยังไม่ได้ Deploy)",
+    en: "The live Apps Script does not support status changes yet — draft v3.4 must be deployed first (not deployed yet)",
+  },
   not_unique: { th: "ไม่พบรหัสการจองนี้ หรือมีรหัสซ้ำ — ไม่ได้แก้ไขข้อมูล", en: "Booking ID not found or duplicated — nothing changed" },
   stale: { th: "สถานะในชีตเปลี่ยนไปแล้ว กรุณารีเฟรช — ไม่ได้แก้ไขข้อมูล", en: "The sheet changed. Please refresh — nothing changed" },
   not_allowed: { th: "เปลี่ยนสถานะนี้ไม่ได้", en: "This status change is not allowed" },
@@ -339,6 +342,15 @@ function AdminReservations() {
         toast.success(lang === "th"
           ? `อัปเดตสถานะ ${out.booking_id} ในชีตเป็น "${out.booking_status}" แล้ว`
           : `${out.booking_id} is now "${out.booking_status}" in the sheet`);
+        const warn = statusUpdateWarning(out);
+        if (warn) {
+          toast.warning(
+            warn === "table"
+              ? (lang === "th" ? "สถานะการจองเปลี่ยนแล้ว แต่สถานะโต๊ะยังไม่ได้อัปเดต" : "Booking status changed, but the table status was not updated")
+              : (lang === "th" ? "สถานะการจองเปลี่ยนแล้ว แต่ตรวจเวลา updated_at ไม่ได้" : "Booking status changed, but updated_at could not be verified"),
+            { description: out.script_message || undefined, duration: 15000 },
+          );
+        }
         setSheetAction(null);
       }
     } catch {
@@ -502,7 +514,10 @@ function AdminReservations() {
             </span>
             {!canUpdateSheet && (
               <span className="text-gold-foreground">
-                {t("เปลี่ยนสถานะจากหน้านี้ได้หลังติดตั้ง Apps Script v4", "Status changes unlock after Apps Script v4 is deployed")}
+                {t(
+                  "Apps Script ที่ใช้งานอยู่ยังไม่รองรับการเปลี่ยนสถานะ — เปลี่ยนสถานะจากหน้านี้ได้หลัง Deploy ไฟล์ร่าง v3.4",
+                  "The live Apps Script does not support status changes yet — they unlock after draft v3.4 is deployed",
+                )}
               </span>
             )}
           </div>

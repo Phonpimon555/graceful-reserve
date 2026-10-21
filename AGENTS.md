@@ -20,3 +20,5 @@
 - Admin reservation hide/restore/delete uses `reservations.is_archived` guarded by database triggers (only admins may change it; only cancelled/completed rows may be hidden or deleted; new rows always start visible). Keeping the rule in the database means direct API calls cannot bypass the UI checks.
 
 - The admin dashboard reads Google Sheets bookings only through admin-verified server functions (`src/lib/sheet-bookings.functions.ts`) that call Apps Script admin actions with the server-only `ADMIN_API_KEY`; hiding a sheet row is stored in `sheet_booking_hidden`, never by editing the sheet. This keeps the key out of the browser and keeps Sheets the single source of booking data.
+
+- Apps Script admin replies are interpreted only by the pure helpers in `src/lib/sheet-bookings.ts` (`classifyGasAdminReply`, `interpretStatusUpdateReply`, `statusUpdateWarning`): a script-supplied `code` always wins and its message is shown verbatim, key errors are recognised only by the script's exact messages, and a confirmed booking change with a failed table update is a success plus a separate warning. Guessing from message words mislabelled real write errors as key mismatches.
