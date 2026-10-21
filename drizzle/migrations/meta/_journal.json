@@ -15,6 +15,13 @@
       "when": 1792233309422,
       "tag": "0001_restrict_admin_to_verified_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792575017939,
+      "tag": "0002_reservation_archive",
+      "breakpoints": true
     }
   ]
 }
