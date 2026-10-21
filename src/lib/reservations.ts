@@ -23,6 +23,8 @@ export type Reservation = {
   user_id?: string | null;
   status: ReservationStatus;
   party_size: number;
+  is_archived?: boolean;
+  archived_at?: string | null;
 };
 
 /** Public availability row (no personal data). */
@@ -166,5 +168,36 @@ export async function cancelMyReservation(id: string) {
     .update({ status: "cancelled" })
     .eq("id", id);
   if (error) return { ok: false as const, reason: error.message };
+  return { ok: true as const };
+}
+
+const FINISHED: ReservationStatus[] = ["cancelled", "completed"];
+
+/**
+ * Admin: hide / restore one finished reservation by its primary key.
+ * Status is never touched. The database also rejects active rows and non-admins.
+ */
+export async function setReservationArchived(id: string, archived: boolean) {
+  const { data, error } = await supabase
+    .from("reservations")
+    .update({ is_archived: archived })
+    .eq("id", id)
+    .in("status", FINISHED)
+    .select("id, is_archived, archived_at");
+  if (error) return { ok: false as const, reason: error.message };
+  if (!data || data.length !== 1) return { ok: false as const, reason: "not_found" as const };
+  return { ok: true as const, row: data[0] };
+}
+
+/** Admin: permanently delete one finished reservation by its primary key. */
+export async function deleteReservation(id: string) {
+  const { data, error } = await supabase
+    .from("reservations")
+    .delete()
+    .eq("id", id)
+    .in("status", FINISHED)
+    .select("id");
+  if (error) return { ok: false as const, reason: error.message };
+  if (!data || data.length !== 1) return { ok: false as const, reason: "not_found" as const };
   return { ok: true as const };
 }
