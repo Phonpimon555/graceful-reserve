@@ -2,7 +2,9 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Download, Eye, Loader2, Pencil, XCircle } from "lucide-react";
+import {
+  Archive, CheckCircle2, Download, Eye, EyeOff, Loader2, Pencil, RotateCcw, Trash2, XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { verifyAdminAccess } from "@/lib/admin-auth";
@@ -26,9 +28,11 @@ import { cn } from "@/lib/utils";
 
 import { TIME_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
-  fetchAllReservations, fetchTables, setReservationStatus, updateReservation,
+  deleteReservation, fetchAllReservations, fetchTables, setReservationArchived,
+  setReservationStatus, updateReservation,
   type Reservation, type ReservationStatus, type TableRow,
 } from "@/lib/reservations";
+import { canArchive, splitByArchive } from "@/lib/reservation-archive";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/")({
@@ -72,6 +76,56 @@ function statusClass(s: ReservationStatus) {
 }
 
 type PendingAction = { res: Reservation; next: ReservationStatus } | null;
+type ArchiveKind = "hide" | "restore" | "delete";
+type ArchiveAction = { res: Reservation; kind: ArchiveKind } | null;
+
+const ARCHIVE_COPY: Record<ArchiveKind, {
+  th: { title: string; body: string; confirm: string; done: string };
+  en: { title: string; body: string; confirm: string; done: string };
+}> = {
+  hide: {
+    th: {
+      title: "ยืนยันการซ่อนรายการจอง",
+      body: "ต้องการซ่อนรายการจองนี้ใช่หรือไม่? รายการจะไม่แสดงในหน้าจัดการการจองหลัก แต่ยังสามารถดูและกู้คืนได้จากแท็บ “รายการที่ซ่อน”",
+      confirm: "ยืนยันการซ่อน",
+      done: "ซ่อนรายการจองเรียบร้อยแล้ว",
+    },
+    en: {
+      title: "Hide this reservation?",
+      body: "It will no longer appear in the main reservation table, but you can still view and restore it from the “Hidden” tab.",
+      confirm: "Hide reservation",
+      done: "Reservation hidden",
+    },
+  },
+  restore: {
+    th: {
+      title: "ยืนยันการกู้คืนรายการจอง",
+      body: "ต้องการนำรายการจองนี้กลับมาแสดงในหน้าจัดการการจองหลักใช่หรือไม่?",
+      confirm: "ยืนยันการกู้คืน",
+      done: "กู้คืนรายการจองเรียบร้อยแล้ว",
+    },
+    en: {
+      title: "Restore this reservation?",
+      body: "Bring this reservation back to the main reservation table?",
+      confirm: "Restore",
+      done: "Reservation restored",
+    },
+  },
+  delete: {
+    th: {
+      title: "ยืนยันการลบรายการจอง",
+      body: "คุณกำลังจะลบรายการจองนี้ออกจากฐานข้อมูลอย่างถาวร การดำเนินการนี้อาจไม่สามารถย้อนกลับได้ กรุณาตรวจสอบข้อมูลก่อนยืนยัน",
+      confirm: "ยืนยันการลบ",
+      done: "ลบรายการจองเรียบร้อยแล้ว",
+    },
+    en: {
+      title: "Delete this reservation?",
+      body: "This permanently removes the reservation from the database and may not be undone. Please check the details before confirming.",
+      confirm: "Delete permanently",
+      done: "Reservation deleted",
+    },
+  },
+};
 
 function AdminReservations() {
   const { lang } = useLang();
