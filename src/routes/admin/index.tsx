@@ -396,8 +396,21 @@ function AdminReservations() {
                     {lang === "th" ? "โหลดข้อมูลไม่สำเร็จ" : "Failed to load reservations"}
                   </td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={9} className="py-12 text-center text-muted-foreground">
-                    {lang === "th" ? "ยังไม่มีรายการจอง" : "No reservations yet"}
+                  <tr><td colSpan={9} className="py-14 text-center text-muted-foreground">
+                    {view === "hidden" ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                          <Archive className="h-5 w-5" />
+                        </span>
+                        <span>
+                          {hidden.length === 0
+                            ? (lang === "th" ? "ยังไม่มีรายการจองที่ซ่อนอยู่" : "No hidden reservations yet")
+                            : (lang === "th" ? "ไม่พบรายการที่ตรงกับการค้นหา" : "No hidden reservations match your filters")}
+                        </span>
+                      </div>
+                    ) : viewRows.length > 0
+                      ? (lang === "th" ? "ไม่พบรายการที่ตรงกับการค้นหา" : "No reservations match your filters")
+                      : (lang === "th" ? "ยังไม่มีรายการจอง" : "No reservations yet")}
                   </td></tr>
                 ) : filtered.map((r) => (
                   <tr key={r.id} className="hover:bg-muted/30 transition">
@@ -448,9 +461,36 @@ function AdminReservations() {
                             </Button>
                           </>
                         ) : (
-                          <Button size="sm" variant="ghost" onClick={() => setDetail(r)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => setDetail(r)}
+                              title={lang === "th" ? "ดูรายละเอียด" : "View details"}
+                              aria-label={lang === "th" ? "ดูรายละเอียด" : "View details"}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {canArchive(r.status) && (view === "hidden" ? (
+                              <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10"
+                                title={lang === "th" ? "กู้คืน" : "Restore"}
+                                aria-label={lang === "th" ? "กู้คืน" : "Restore"}
+                                onClick={() => setArchiveAction({ res: r, kind: "restore" })}>
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-primary"
+                                title={lang === "th" ? "ซ่อนรายการ" : "Hide"}
+                                aria-label={lang === "th" ? "ซ่อนรายการ" : "Hide"}
+                                onClick={() => setArchiveAction({ res: r, kind: "hide" })}>
+                                <EyeOff className="h-4 w-4" />
+                              </Button>
+                            ))}
+                            {canArchive(r.status) && (
+                              <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10"
+                                title={lang === "th" ? "ลบถาวร" : "Delete permanently"}
+                                aria-label={lang === "th" ? "ลบถาวร" : "Delete permanently"}
+                                onClick={() => setArchiveAction({ res: r, kind: "delete" })}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
