@@ -88,10 +88,12 @@ export type Database = {
       }
       reservations: {
         Row: {
+          archived_at: string | null
           contact_email: string | null
           created_at: string
           customer_name: string
           id: string
+          is_archived: boolean
           party_size: number
           phone: string
           reservation_date: string
@@ -102,10 +104,12 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          archived_at?: string | null
           contact_email?: string | null
           created_at?: string
           customer_name: string
           id?: string
+          is_archived?: boolean
           party_size?: number
           phone: string
           reservation_date: string
@@ -116,10 +120,12 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          archived_at?: string | null
           contact_email?: string | null
           created_at?: string
           customer_name?: string
           id?: string
+          is_archived?: boolean
           party_size?: number
           phone?: string
           reservation_date?: string

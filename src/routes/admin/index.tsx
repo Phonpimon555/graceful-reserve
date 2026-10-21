@@ -2,7 +2,9 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Download, Eye, Loader2, Pencil, XCircle } from "lucide-react";
+import {
+  Archive, CheckCircle2, Download, Eye, EyeOff, Loader2, Pencil, RotateCcw, Trash2, XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { verifyAdminAccess } from "@/lib/admin-auth";
@@ -26,9 +28,11 @@ import { cn } from "@/lib/utils";
 
 import { TIME_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
-  fetchAllReservations, fetchTables, setReservationStatus, updateReservation,
+  deleteReservation, fetchAllReservations, fetchTables, setReservationArchived,
+  setReservationStatus, updateReservation,
   type Reservation, type ReservationStatus, type TableRow,
 } from "@/lib/reservations";
+import { canArchive, splitByArchive } from "@/lib/reservation-archive";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/")({
@@ -72,6 +76,56 @@ function statusClass(s: ReservationStatus) {
 }
 
 type PendingAction = { res: Reservation; next: ReservationStatus } | null;
+type ArchiveKind = "hide" | "restore" | "delete";
+type ArchiveAction = { res: Reservation; kind: ArchiveKind } | null;
+
+const ARCHIVE_COPY: Record<ArchiveKind, {
+  th: { title: string; body: string; confirm: string; done: string };
+  en: { title: string; body: string; confirm: string; done: string };
+}> = {
+  hide: {
+    th: {
+      title: "ยืนยันการซ่อนรายการจอง",
+      body: "ต้องการซ่อนรายการจองนี้ใช่หรือไม่? รายการจะไม่แสดงในหน้าจัดการการจองหลัก แต่ยังสามารถดูและกู้คืนได้จากแท็บ “รายการที่ซ่อน”",
+      confirm: "ยืนยันการซ่อน",
+      done: "ซ่อนรายการจองเรียบร้อยแล้ว",
+    },
+    en: {
+      title: "Hide this reservation?",
+      body: "It will no longer appear in the main reservation table, but you can still view and restore it from the “Hidden” tab.",
+      confirm: "Hide reservation",
+      done: "Reservation hidden",
+    },
+  },
+  restore: {
+    th: {
+      title: "ยืนยันการกู้คืนรายการจอง",
+      body: "ต้องการนำรายการจองนี้กลับมาแสดงในหน้าจัดการการจองหลักใช่หรือไม่?",
+      confirm: "ยืนยันการกู้คืน",
+      done: "กู้คืนรายการจองเรียบร้อยแล้ว",
+    },
+    en: {
+      title: "Restore this reservation?",
+      body: "Bring this reservation back to the main reservation table?",
+      confirm: "Restore",
+      done: "Reservation restored",
+    },
+  },
+  delete: {
+    th: {
+      title: "ยืนยันการลบรายการจอง",
+      body: "คุณกำลังจะลบรายการจองนี้ออกจากฐานข้อมูลอย่างถาวร การดำเนินการนี้อาจไม่สามารถย้อนกลับได้ กรุณาตรวจสอบข้อมูลก่อนยืนยัน",
+      confirm: "ยืนยันการลบ",
+      done: "ลบรายการจองเรียบร้อยแล้ว",
+    },
+    en: {
+      title: "Delete this reservation?",
+      body: "This permanently removes the reservation from the database and may not be undone. Please check the details before confirming.",
+      confirm: "Delete permanently",
+      done: "Reservation deleted",
+    },
+  },
+};
 
 function AdminReservations() {
   const { lang } = useLang();
@@ -98,6 +152,9 @@ function AdminReservations() {
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [detail, setDetail] = useState<Reservation | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
+  const [view, setView] = useState<"main" | "hidden">("main");
+  const [archiveAction, setArchiveAction] = useState<ArchiveAction>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
 
   const tableMap = useMemo(() => {
     const m: Record<string, TableRow> = {};
@@ -105,11 +162,18 @@ function AdminReservations() {
     return m;
   }, [tablesQ.data]);
 
+  const { visible, hidden } = useMemo(() => splitByArchive(resQ.data ?? []), [resQ.data]);
+  const viewRows = view === "hidden" ? hidden : visible;
+
   const filtered = useMemo(() => {
-    return (resQ.data ?? []).filter((r) => {
+    return viewRows.filter((r) => {
       if (search) {
-        const q = search.toLowerCase();
-        if (!r.customer_name.toLowerCase().includes(q) && !r.phone.includes(search)) return false;
+        const q = search.trim().toLowerCase();
+        if (
+          !r.customer_name.toLowerCase().includes(q)
+          && !r.phone.includes(q)
+          && !r.table_id.toLowerCase().includes(q)
+        ) return false;
       }
       if (date !== "all" && r.reservation_date !== date) return false;
       if (slot !== "all" && r.time_slot !== slot) return false;
@@ -117,18 +181,26 @@ function AdminReservations() {
       if (status !== "all" && r.status !== status) return false;
       return true;
     });
-  }, [resQ.data, search, date, slot, zone, status, tableMap]);
+  }, [viewRows, search, date, slot, zone, status, tableMap]);
 
   const dates = useMemo(
-    () => Array.from(new Set((resQ.data ?? []).map((r) => r.reservation_date))).sort().reverse(),
-    [resQ.data],
+    () => Array.from(new Set(viewRows.map((r) => r.reservation_date))).sort().reverse(),
+    [viewRows],
   );
 
+  // Hidden rows are always cancelled/completed, so hiding never changes today's table counts.
   const today = format(new Date(), "yyyy-MM-dd");
   const active = (resQ.data ?? []).filter((r) => r.status !== "cancelled");
   const todayRes = active.filter((r) => r.reservation_date === today);
   const totalTables = tablesQ.data?.filter((t) => t.status !== "disabled").length ?? 0;
   const occupancy = totalTables > 0 ? Math.round((todayRes.length / totalTables) * 100) : 0;
+
+  const switchView = (next: "main" | "hidden") => {
+    if (next === view) return;
+    setView(next);
+    setDate("all");
+    setStatus("all");
+  };
 
   const applyAction = async () => {
     if (!pendingAction) return;
@@ -144,6 +216,44 @@ function AdminReservations() {
       );
       qc.invalidateQueries({ queryKey: ["allReservations"] });
     }
+  };
+
+  const applyArchive = async () => {
+    if (!archiveAction || archiveBusy) return;
+    const { res, kind } = archiveAction;
+    if (!canArchive(res.status)) {
+      toast.error(lang === "th"
+        ? "ซ่อนหรือลบได้เฉพาะรายการที่เสร็จสิ้นหรือยกเลิกแล้ว"
+        : "Only completed or cancelled reservations can be hidden or deleted");
+      setArchiveAction(null);
+      return;
+    }
+    setArchiveBusy(true);
+    const out = kind === "delete"
+      ? await deleteReservation(res.id)
+      : await setReservationArchived(res.id, kind === "hide");
+    setArchiveBusy(false);
+    if (!out.ok) {
+      const failed = lang === "th"
+        ? (kind === "delete" ? "ลบรายการไม่สำเร็จ" : kind === "hide" ? "ซ่อนรายการไม่สำเร็จ" : "กู้คืนรายการไม่สำเร็จ")
+        : (kind === "delete" ? "Could not delete" : kind === "hide" ? "Could not hide" : "Could not restore");
+      const why = out.reason === "not_found"
+        ? (lang === "th" ? "ไม่พบรายการนี้ หรือสถานะเปลี่ยนไปแล้ว" : "Reservation not found or its status changed")
+        : out.reason;
+      toast.error(`${failed}: ${why}`);
+      qc.invalidateQueries({ queryKey: ["allReservations"] });
+      return;
+    }
+    qc.setQueryData<Reservation[]>(["allReservations"], (rows) => {
+      if (!rows) return rows;
+      if (kind === "delete") return rows.filter((r) => r.id !== res.id);
+      return rows.map((r) => (r.id === res.id
+        ? { ...r, is_archived: kind === "hide", archived_at: kind === "hide" ? new Date().toISOString() : null }
+        : r));
+    });
+    setArchiveAction(null);
+    toast.success(ARCHIVE_COPY[kind][lang === "th" ? "th" : "en"].done);
+    qc.invalidateQueries({ queryKey: ["allReservations"] });
   };
 
   const exportCsv = () => {
@@ -180,16 +290,49 @@ function AdminReservations() {
         <AdminTabs />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <AdminStat label={lang === "th" ? "การจองทั้งหมด" : "Total reservations"} value={resQ.data?.length ?? 0} />
+          <AdminStat
+            label={lang === "th" ? "การจองทั้งหมด" : "Total reservations"}
+            value={resQ.data?.length ?? 0}
+            hint={lang === "th"
+              ? `แสดงในตาราง ${visible.length} · ซ่อน ${hidden.length}`
+              : `In table ${visible.length} · Hidden ${hidden.length}`}
+          />
           <AdminStat label={lang === "th" ? "จองแล้ววันนี้" : "Reserved today"} value={`${todayRes.length}/${totalTables}`} />
           <AdminStat label={lang === "th" ? "ว่างวันนี้" : "Available today"} value={`${Math.max(totalTables - todayRes.length, 0)}/${totalTables}`} />
           <AdminStat label={lang === "th" ? "อัตราการใช้โต๊ะ" : "Occupancy"} value={`${occupancy}%`} />
         </div>
 
+        <div role="tablist" aria-label={lang === "th" ? "มุมมองรายการจอง" : "Reservation view"}
+          className="inline-flex rounded-full border border-border/70 bg-card p-1 shadow-soft">
+          {([
+            { key: "main", th: "รายการจอง", en: "Reservations", count: visible.length, Icon: Eye },
+            { key: "hidden", th: "รายการที่ซ่อน", en: "Hidden", count: hidden.length, Icon: Archive },
+          ] as const).map(({ key, th, en, count, Icon }) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={view === key}
+              onClick={() => switchView(key)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-sans transition",
+                view === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-primary",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {lang === "th" ? th : en}
+              <span className={cn(
+                "rounded-full px-2 text-[11px] tabular-nums",
+                view === key ? "bg-primary-foreground/20" : "bg-muted",
+              )}>{count}</span>
+            </button>
+          ))}
+        </div>
+
         <Card className="p-4 shadow-soft border-border/60">
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <Input
-              placeholder={lang === "th" ? "ค้นหาชื่อ / เบอร์โทร" : "Search name / phone"}
+              placeholder={lang === "th" ? "ค้นหาชื่อ / เบอร์โทร / โต๊ะ" : "Search name / phone / table"}
               value={search} onChange={(e) => setSearch(e.target.value)} className="font-sans"
             />
             <Select value={date} onValueChange={setDate}>
@@ -253,8 +396,21 @@ function AdminReservations() {
                     {lang === "th" ? "โหลดข้อมูลไม่สำเร็จ" : "Failed to load reservations"}
                   </td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={9} className="py-12 text-center text-muted-foreground">
-                    {lang === "th" ? "ยังไม่มีรายการจอง" : "No reservations yet"}
+                  <tr><td colSpan={9} className="py-14 text-center text-muted-foreground">
+                    {view === "hidden" ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                          <Archive className="h-5 w-5" />
+                        </span>
+                        <span>
+                          {hidden.length === 0
+                            ? (lang === "th" ? "ยังไม่มีรายการจองที่ซ่อนอยู่" : "No hidden reservations yet")
+                            : (lang === "th" ? "ไม่พบรายการที่ตรงกับการค้นหา" : "No hidden reservations match your filters")}
+                        </span>
+                      </div>
+                    ) : viewRows.length > 0
+                      ? (lang === "th" ? "ไม่พบรายการที่ตรงกับการค้นหา" : "No reservations match your filters")
+                      : (lang === "th" ? "ยังไม่มีรายการจอง" : "No reservations yet")}
                   </td></tr>
                 ) : filtered.map((r) => (
                   <tr key={r.id} className="hover:bg-muted/30 transition">
@@ -305,9 +461,36 @@ function AdminReservations() {
                             </Button>
                           </>
                         ) : (
-                          <Button size="sm" variant="ghost" onClick={() => setDetail(r)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => setDetail(r)}
+                              title={lang === "th" ? "ดูรายละเอียด" : "View details"}
+                              aria-label={lang === "th" ? "ดูรายละเอียด" : "View details"}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {canArchive(r.status) && (view === "hidden" ? (
+                              <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10"
+                                title={lang === "th" ? "กู้คืน" : "Restore"}
+                                aria-label={lang === "th" ? "กู้คืน" : "Restore"}
+                                onClick={() => setArchiveAction({ res: r, kind: "restore" })}>
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-primary"
+                                title={lang === "th" ? "ซ่อนรายการ" : "Hide"}
+                                aria-label={lang === "th" ? "ซ่อนรายการ" : "Hide"}
+                                onClick={() => setArchiveAction({ res: r, kind: "hide" })}>
+                                <EyeOff className="h-4 w-4" />
+                              </Button>
+                            ))}
+                            {canArchive(r.status) && (
+                              <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10"
+                                title={lang === "th" ? "ลบถาวร" : "Delete permanently"}
+                                aria-label={lang === "th" ? "ลบถาวร" : "Delete permanently"}
+                                onClick={() => setArchiveAction({ res: r, kind: "delete" })}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -340,6 +523,59 @@ function AdminReservations() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog
+        open={!!archiveAction}
+        onOpenChange={(o) => { if (!o && !archiveBusy) setArchiveAction(null); }}
+      >
+        <AlertDialogContent>
+          {archiveAction && (() => {
+            const copy = ARCHIVE_COPY[archiveAction.kind][lang === "th" ? "th" : "en"];
+            const r = archiveAction.res;
+            return (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+                  <AlertDialogDescription>{copy.body}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-sm font-sans space-y-1">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{lang === "th" ? "รหัสการจอง" : "Booking ID"}</span>
+                    <span className="tabular-nums text-xs break-all text-right">{r.id}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{lang === "th" ? "ลูกค้า" : "Customer"}</span>
+                    <span>{r.customer_name} · {r.phone}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{lang === "th" ? "วันเวลา / โต๊ะ" : "Date / table"}</span>
+                    <span className="tabular-nums">
+                      {format(new Date(r.reservation_date), "MMM d, yyyy")} · {r.time_slot} · {r.table_id}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{lang === "th" ? "สถานะ" : "Status"}</span>
+                    <span>{statusLabel(r.status, lang)}</span>
+                  </div>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={archiveBusy}>
+                    {lang === "th" ? "ยกเลิก" : "Cancel"}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={archiveBusy}
+                    onClick={(e) => { e.preventDefault(); void applyArchive(); }}
+                    className={cn(archiveAction.kind === "delete" && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+                  >
+                    {archiveBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {copy.confirm}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            );
+          })()}
+        </AlertDialogContent>
+      </AlertDialog>
+
       <DetailDialog res={detail} onClose={() => setDetail(null)} tableMap={tableMap} />
 
       <EditDialog
@@ -352,11 +588,12 @@ function AdminReservations() {
   );
 }
 
-function AdminStat({ label, value }: { label: string; value: string | number }) {
+function AdminStat({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
     <Card className="p-5 border-border/60 shadow-soft">
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
       <div className="mt-1 font-sans text-3xl font-semibold tabular-nums text-primary">{value}</div>
+      {hint && <div className="mt-1 text-xs font-sans tabular-nums text-muted-foreground">{hint}</div>}
     </Card>
   );
 }
