@@ -18,3 +18,5 @@
 - Customer auth and table booking run on the Google Apps Script + Google Sheets API (`src/lib/auth/gasAuth.ts`, `src/lib/gasBooking.ts`), not Supabase — the owner manages data in Sheets, so do not route customer login/register/booking/history/cancel flows through Supabase tables. Supabase remains only for the admin back office and as a temporary fallback for the table map until the Apps Script `tables` action is deployed.
 
 - Admin reservation hide/restore/delete uses `reservations.is_archived` guarded by database triggers (only admins may change it; only cancelled/completed rows may be hidden or deleted; new rows always start visible). Keeping the rule in the database means direct API calls cannot bypass the UI checks.
+
+- The admin dashboard reads Google Sheets bookings only through admin-verified server functions (`src/lib/sheet-bookings.functions.ts`) that call Apps Script admin actions with the server-only `ADMIN_API_KEY`; hiding a sheet row is stored in `sheet_booking_hidden`, never by editing the sheet. This keeps the key out of the browser and keeps Sheets the single source of booking data.
