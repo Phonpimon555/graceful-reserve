@@ -523,6 +523,59 @@ function AdminReservations() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog
+        open={!!archiveAction}
+        onOpenChange={(o) => { if (!o && !archiveBusy) setArchiveAction(null); }}
+      >
+        <AlertDialogContent>
+          {archiveAction && (() => {
+            const copy = ARCHIVE_COPY[archiveAction.kind][lang === "th" ? "th" : "en"];
+            const r = archiveAction.res;
+            return (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+                  <AlertDialogDescription>{copy.body}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-sm font-sans space-y-1">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{lang === "th" ? "รหัสการจอง" : "Booking ID"}</span>
+                    <span className="tabular-nums text-xs break-all text-right">{r.id}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{lang === "th" ? "ลูกค้า" : "Customer"}</span>
+                    <span>{r.customer_name} · {r.phone}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{lang === "th" ? "วันเวลา / โต๊ะ" : "Date / table"}</span>
+                    <span className="tabular-nums">
+                      {format(new Date(r.reservation_date), "MMM d, yyyy")} · {r.time_slot} · {r.table_id}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">{lang === "th" ? "สถานะ" : "Status"}</span>
+                    <span>{statusLabel(r.status, lang)}</span>
+                  </div>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={archiveBusy}>
+                    {lang === "th" ? "ยกเลิก" : "Cancel"}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={archiveBusy}
+                    onClick={(e) => { e.preventDefault(); void applyArchive(); }}
+                    className={cn(archiveAction.kind === "delete" && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+                  >
+                    {archiveBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {copy.confirm}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            );
+          })()}
+        </AlertDialogContent>
+      </AlertDialog>
+
       <DetailDialog res={detail} onClose={() => setDetail(null)} tableMap={tableMap} />
 
       <EditDialog
@@ -535,11 +588,12 @@ function AdminReservations() {
   );
 }
 
-function AdminStat({ label, value }: { label: string; value: string | number }) {
+function AdminStat({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
     <Card className="p-5 border-border/60 shadow-soft">
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
       <div className="mt-1 font-sans text-3xl font-semibold tabular-nums text-primary">{value}</div>
+      {hint && <div className="mt-1 text-xs font-sans tabular-nums text-muted-foreground">{hint}</div>}
     </Card>
   );
 }
