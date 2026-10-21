@@ -134,7 +134,6 @@ export function normalizeSheetBookings(raw: RawSheetBooking[]): SheetBooking[] {
       booking_id,
       channel: /^MEM/i.test(fields.member_id) ? "web" : "line",
       ...fields,
-      name: fields.name,
       date,
       time_slot,
       people,
