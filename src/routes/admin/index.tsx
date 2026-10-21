@@ -152,6 +152,9 @@ function AdminReservations() {
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [detail, setDetail] = useState<Reservation | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
+  const [view, setView] = useState<"main" | "hidden">("main");
+  const [archiveAction, setArchiveAction] = useState<ArchiveAction>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
 
   const tableMap = useMemo(() => {
     const m: Record<string, TableRow> = {};
@@ -159,11 +162,18 @@ function AdminReservations() {
     return m;
   }, [tablesQ.data]);
 
+  const { visible, hidden } = useMemo(() => splitByArchive(resQ.data ?? []), [resQ.data]);
+  const viewRows = view === "hidden" ? hidden : visible;
+
   const filtered = useMemo(() => {
-    return (resQ.data ?? []).filter((r) => {
+    return viewRows.filter((r) => {
       if (search) {
-        const q = search.toLowerCase();
-        if (!r.customer_name.toLowerCase().includes(q) && !r.phone.includes(search)) return false;
+        const q = search.trim().toLowerCase();
+        if (
+          !r.customer_name.toLowerCase().includes(q)
+          && !r.phone.includes(q)
+          && !r.table_id.toLowerCase().includes(q)
+        ) return false;
       }
       if (date !== "all" && r.reservation_date !== date) return false;
       if (slot !== "all" && r.time_slot !== slot) return false;
@@ -171,18 +181,26 @@ function AdminReservations() {
       if (status !== "all" && r.status !== status) return false;
       return true;
     });
-  }, [resQ.data, search, date, slot, zone, status, tableMap]);
+  }, [viewRows, search, date, slot, zone, status, tableMap]);
 
   const dates = useMemo(
-    () => Array.from(new Set((resQ.data ?? []).map((r) => r.reservation_date))).sort().reverse(),
-    [resQ.data],
+    () => Array.from(new Set(viewRows.map((r) => r.reservation_date))).sort().reverse(),
+    [viewRows],
   );
 
+  // Hidden rows are always cancelled/completed, so hiding never changes today's table counts.
   const today = format(new Date(), "yyyy-MM-dd");
   const active = (resQ.data ?? []).filter((r) => r.status !== "cancelled");
   const todayRes = active.filter((r) => r.reservation_date === today);
   const totalTables = tablesQ.data?.filter((t) => t.status !== "disabled").length ?? 0;
   const occupancy = totalTables > 0 ? Math.round((todayRes.length / totalTables) * 100) : 0;
+
+  const switchView = (next: "main" | "hidden") => {
+    if (next === view) return;
+    setView(next);
+    setDate("all");
+    setStatus("all");
+  };
 
   const applyAction = async () => {
     if (!pendingAction) return;
@@ -198,6 +216,44 @@ function AdminReservations() {
       );
       qc.invalidateQueries({ queryKey: ["allReservations"] });
     }
+  };
+
+  const applyArchive = async () => {
+    if (!archiveAction || archiveBusy) return;
+    const { res, kind } = archiveAction;
+    if (!canArchive(res.status)) {
+      toast.error(lang === "th"
+        ? "ซ่อนหรือลบได้เฉพาะรายการที่เสร็จสิ้นหรือยกเลิกแล้ว"
+        : "Only completed or cancelled reservations can be hidden or deleted");
+      setArchiveAction(null);
+      return;
+    }
+    setArchiveBusy(true);
+    const out = kind === "delete"
+      ? await deleteReservation(res.id)
+      : await setReservationArchived(res.id, kind === "hide");
+    setArchiveBusy(false);
+    if (!out.ok) {
+      const failed = lang === "th"
+        ? (kind === "delete" ? "ลบรายการไม่สำเร็จ" : kind === "hide" ? "ซ่อนรายการไม่สำเร็จ" : "กู้คืนรายการไม่สำเร็จ")
+        : (kind === "delete" ? "Could not delete" : kind === "hide" ? "Could not hide" : "Could not restore");
+      const why = out.reason === "not_found"
+        ? (lang === "th" ? "ไม่พบรายการนี้ หรือสถานะเปลี่ยนไปแล้ว" : "Reservation not found or its status changed")
+        : out.reason;
+      toast.error(`${failed}: ${why}`);
+      qc.invalidateQueries({ queryKey: ["allReservations"] });
+      return;
+    }
+    qc.setQueryData<Reservation[]>(["allReservations"], (rows) => {
+      if (!rows) return rows;
+      if (kind === "delete") return rows.filter((r) => r.id !== res.id);
+      return rows.map((r) => (r.id === res.id
+        ? { ...r, is_archived: kind === "hide", archived_at: "row" in out ? out.row.archived_at : r.archived_at }
+        : r));
+    });
+    setArchiveAction(null);
+    toast.success(ARCHIVE_COPY[kind][lang === "th" ? "th" : "en"].done);
+    qc.invalidateQueries({ queryKey: ["allReservations"] });
   };
 
   const exportCsv = () => {
