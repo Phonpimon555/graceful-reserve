@@ -33,7 +33,7 @@ import {
   setReservationStatus, updateReservation,
   type Reservation, type ReservationStatus, type TableRow,
 } from "@/lib/reservations";
-import { canArchive, splitByArchive } from "@/lib/reservation-archive";
+import { canArchive } from "@/lib/reservation-archive";
 import { supabase } from "@/integrations/supabase/client";
 import {
   allowedNextStatuses, canHideSheetBooking, type SheetBooking, type SheetWarning,
