@@ -248,7 +248,7 @@ function AdminReservations() {
       if (!rows) return rows;
       if (kind === "delete") return rows.filter((r) => r.id !== res.id);
       return rows.map((r) => (r.id === res.id
-        ? { ...r, is_archived: kind === "hide", archived_at: "row" in out ? out.row.archived_at : r.archived_at }
+        ? { ...r, is_archived: kind === "hide", archived_at: kind === "hide" ? new Date().toISOString() : null }
         : r));
     });
     setArchiveAction(null);
