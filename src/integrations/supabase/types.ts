@@ -199,6 +199,27 @@ export type Database = {
         }
         Relationships: []
       }
+      sheet_booking_hidden: {
+        Row: {
+          booking_id: string
+          hidden_at: string
+          hidden_by: string
+          key: string
+        }
+        Insert: {
+          booking_id?: string
+          hidden_at?: string
+          hidden_by: string
+          key: string
+        }
+        Update: {
+          booking_id?: string
+          hidden_at?: string
+          hidden_by?: string
+          key?: string
+        }
+        Relationships: []
+      }
       tables: {
         Row: {
           capacity: number
