@@ -2,8 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  canChangeStatus, canHideSheetBooking, normalizeSheetBookings, sheetStatusValue,
-  type RawSheetBooking, type SheetBooking,
+  canChangeStatus, canHideSheetBooking, interpretStatusUpdateReply, normalizeSheetBookings, sheetStatusValue,
+  type RawSheetBooking, type SheetBooking, type StatusUpdateOutcome,
 } from "@/lib/sheet-bookings";
 import { assertAdmin, callGasAdmin } from "@/lib/sheet-bookings.server";
 
@@ -71,18 +71,20 @@ export const updateSheetBookingStatus = createServerFn({ method: "POST" })
     next: z.enum(["confirmed", "cancelled", "completed"]),
     expected_status: z.string().max(100),
   }).parse(d))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<StatusUpdateOutcome> => {
     await assertAdmin(context);
     const loaded = await loadRows();
-    if (!loaded.ok) return { ok: false as const, code: loaded.code, message: loaded.message };
-    if (!loaded.canUpdateStatus) return { ok: false as const, code: "script_outdated", message: "Apps Script v4 is not deployed yet" };
+    if (!loaded.ok) return { ok: false, code: loaded.code, message: loaded.message };
+    if (!loaded.canUpdateStatus) {
+      return { ok: false, code: "script_outdated", message: "The deployed Apps Script does not support admin status changes yet" };
+    }
     const matches = loaded.rows.filter((r) => r.booking_id.toUpperCase() === data.booking_id.toUpperCase());
     const row = matches[0];
-    if (matches.length !== 1 || !row) return { ok: false as const, code: "not_unique", message: "Booking ID not found or not unique" };
+    if (matches.length !== 1 || !row) return { ok: false, code: "not_unique", message: "Booking ID not found or not unique" };
     if (row.status_raw !== data.expected_status) {
-      return { ok: false as const, code: "stale", message: "The status in the sheet changed. Please refresh." };
+      return { ok: false, code: "stale", message: "The status in the sheet changed. Please refresh." };
     }
-    if (!canChangeStatus(row, data.next)) return { ok: false as const, code: "not_allowed", message: "This status change is not allowed" };
+    if (!canChangeStatus(row, data.next)) return { ok: false, code: "not_allowed", message: "This status change is not allowed" };
     const value = sheetStatusValue(data.next, row.status_raw);
     const r = await callGasAdmin({
       action: "admin_update_status",
@@ -91,9 +93,5 @@ export const updateSheetBookingStatus = createServerFn({ method: "POST" })
       expected_status: row.status_raw,
       expected_row: row.row,
     });
-    if (!r.ok) return { ok: false as const, code: r.code, message: r.message };
-    if (String(r.data["booking_status"] ?? "") !== value || String(r.data["booking_id"] ?? "") !== row.booking_id) {
-      return { ok: false as const, code: "mismatch", message: "Apps Script reply did not confirm the change" };
-    }
-    return { ok: true as const, booking_id: row.booking_id, booking_status: value, updated_at: String(r.data["updated_at"] ?? "") };
+    return interpretStatusUpdateReply(r, row.booking_id, value);
   });
