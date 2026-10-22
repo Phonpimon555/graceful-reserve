@@ -157,6 +157,19 @@ export function canChangeStatus(b: Pick<SheetBooking, "identifiable" | "status">
 }
 
 /**
+ * The admin may send a status change only when the script explicitly declared
+ * `can_update_status: true` AND this row came back with a valid sheet row number.
+ * (The live v3.1 script sends neither, so nothing can be changed until v3.4 is deployed.)
+ */
+export function canRequestStatusChange(
+  b: Pick<SheetBooking, "identifiable" | "status" | "row">,
+  next: SheetStatus,
+  scriptCanUpdate: boolean,
+) {
+  return scriptCanUpdate === true && b.row !== null && canChangeStatus(b, next);
+}
+
+/**
  * Value written to the sheet. Rows already using Thai statuses (LINE) keep Thai;
  * others use the English values the website writes.
  */
@@ -221,7 +234,10 @@ export type StatusUpdateOutcome =
       /** null when the script did not report it. */
       table_status_updated: boolean | null;
       table_status_result: string;
+      /** true = the script read back the exact time it wrote. */
       updated_at_verified: boolean | null;
+      /** true = the cell changed to today's date/time, but the exact moment could not be confirmed. */
+      updated_at_written: boolean | null;
       script_message: string;
     }
   | { ok: false; code: string; message: string; scriptCode?: string };
@@ -242,14 +258,23 @@ export function interpretStatusUpdateReply(r: GasAdminResult, bookingId: string,
     table_status_updated: bool(d["table_status_updated"]),
     table_status_result: String(d["table_status_result"] ?? ""),
     updated_at_verified: bool(d["updated_at_verified"]),
+    updated_at_written: bool(d["updated_at_written"]),
     script_message: String(d["message"] ?? ""),
   };
 }
 
-/** A confirmed status change that still needs a separate yellow warning. */
-export function statusUpdateWarning(o: StatusUpdateOutcome): "table" | "updated_at" | null {
-  if (!o.ok) return null;
-  if (o.table_status_updated === false) return "table";
-  if (o.updated_at_verified === false) return "updated_at";
-  return null;
+export type StatusUpdateWarning = "table" | "updated_at";
+
+/** Every separate yellow warning a confirmed status change still needs (table first). */
+export function statusUpdateWarnings(o: StatusUpdateOutcome): StatusUpdateWarning[] {
+  if (!o.ok) return [];
+  const out: StatusUpdateWarning[] = [];
+  if (o.table_status_updated === false) out.push("table");
+  if (o.updated_at_verified === false) out.push("updated_at");
+  return out;
+}
+
+/** The first warning only (kept for existing callers/tests). */
+export function statusUpdateWarning(o: StatusUpdateOutcome): StatusUpdateWarning | null {
+  return statusUpdateWarnings(o)[0] ?? null;
 }

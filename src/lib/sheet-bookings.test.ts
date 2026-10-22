@@ -1,8 +1,8 @@
 /// <reference types="bun" />
 import { describe, expect, test } from "bun:test";
 import {
-  allowedNextStatuses, canChangeStatus, canHideSheetBooking, classifyGasAdminReply, interpretStatusUpdateReply,
-  normalizeSheetBookings, normalizeSheetStatus, sheetStatusValue, statusUpdateWarning,
+  allowedNextStatuses, canChangeStatus, canHideSheetBooking, canRequestStatusChange, classifyGasAdminReply, interpretStatusUpdateReply,
+  normalizeSheetBookings, normalizeSheetStatus, sheetStatusValue, statusUpdateWarning, statusUpdateWarnings,
 } from "./sheet-bookings";
 
 // Rows shaped like the live Apps Script `get_bookings` output.
@@ -87,5 +87,53 @@ describe("admin status-change replies from Apps Script", () => {
   test("updated_at written in an unverifiable format gets a warning", () => {
     const o = reply({ status: "success", booking_id: "BK7984", booking_status: "Cancelled", table_status_updated: true, updated_at_verified: false });
     expect(statusUpdateWarning(o)).toBe("updated_at");
+  });
+});
+
+describe("status changes unlock only with script support and a valid row", () => {
+  // Same booking as the live v3.1 reply (no row) and the v3.4 reply (row 5).
+  const raw = { booking_id: "BK7984", member_id: "MEM0001", name: "Cream", phone: "0934793743", date: "2026-10-20", time: "20:00", people: 2, table_id: "A04", zone: "สวน", booking_status: "Confirmed" };
+  const [v31] = normalizeSheetBookings([raw]);
+  const [v34] = normalizeSheetBookings([{ ...raw, row: 5 }]);
+
+  test("v3.1 reply (no can_update_status, no row) cannot change status", () => {
+    expect(canRequestStatusChange(v31, "cancelled", false)).toBe(false);
+  });
+  test("can_update_status alone is not enough without a row number", () => {
+    expect(canRequestStatusChange(v31, "cancelled", true)).toBe(false);
+  });
+  test("v3.4 reply with can_update_status and row 5 can cancel", () => {
+    expect(canRequestStatusChange(v34, "cancelled", true)).toBe(true);
+  });
+  test("a row number without can_update_status cannot change status", () => {
+    expect(canRequestStatusChange(v34, "cancelled", false)).toBe(false);
+  });
+  test("row 0, row 1, text and fractional rows are not valid rows", () => {
+    for (const row of [0, 1, "", "abc", 2.5, -3, null]) {
+      expect(normalizeSheetBookings([{ ...raw, row }])[0].row).toBeNull();
+    }
+  });
+  test("row_mismatch from the script is an error with the script's message", () => {
+    const msg = "เลขแถวไม่ตรงกับรายการในชีต กรุณารีเฟรชแล้วลองใหม่ — ไม่ได้แก้ไขข้อมูล";
+    const o = interpretStatusUpdateReply(classifyGasAdminReply({ status: "error", code: "row_mismatch", message: msg }), "BK7984", "Cancelled");
+    expect(o).toMatchObject({ ok: false, code: "script_error", scriptCode: "row_mismatch", message: msg });
+  });
+});
+
+describe("changed_format_unverified is reported as unconfirmed time", () => {
+  const ok = (extra: Record<string, unknown>) => interpretStatusUpdateReply(
+    classifyGasAdminReply({ status: "success", booking_id: "BK7984", booking_status: "Cancelled", ...extra }), "BK7984", "Cancelled");
+
+  test("written but unverifiable updated_at keeps verified=false and written=true", () => {
+    const o = ok({ table_status_updated: true, updated_at_written: true, updated_at_verified: false });
+    expect(o).toMatchObject({ ok: true, updated_at_verified: false, updated_at_written: true });
+    expect(statusUpdateWarnings(o)).toEqual(["updated_at"]);
+  });
+  test("table failure and unverified time both raise a warning", () => {
+    const o = ok({ table_status_updated: false, updated_at_written: true, updated_at_verified: false });
+    expect(statusUpdateWarnings(o)).toEqual(["table", "updated_at"]);
+  });
+  test("verified time and updated table raise no warning", () => {
+    expect(statusUpdateWarnings(ok({ table_status_updated: true, updated_at_written: true, updated_at_verified: true }))).toEqual([]);
   });
 });

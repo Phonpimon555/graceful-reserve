@@ -36,7 +36,8 @@ import {
 import { canArchive } from "@/lib/reservation-archive";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  allowedNextStatuses, canHideSheetBooking, statusUpdateWarning, type SheetBooking, type SheetWarning,
+  allowedNextStatuses, canHideSheetBooking, canRequestStatusChange, statusUpdateWarnings,
+  type SheetBooking, type SheetWarning,
 } from "@/lib/sheet-bookings";
 import {
   listSheetBookings, setSheetBookingHidden, updateSheetBookingStatus,
@@ -117,6 +118,10 @@ const SHEET_ERROR: Record<string, { th: string; en: string }> = {
   script_outdated: {
     th: "Apps Script ที่ใช้งานอยู่ยังไม่รองรับการเปลี่ยนสถานะ — ต้อง Deploy ไฟล์ร่าง v3.4 ก่อน (ยังไม่ได้ Deploy)",
     en: "The live Apps Script does not support status changes yet — draft v3.4 must be deployed first (not deployed yet)",
+  },
+  no_row: {
+    th: "Apps Script ไม่ได้ส่งเลขแถวที่ถูกต้องของรายการนี้มา — ไม่ได้แก้ไขข้อมูล",
+    en: "Apps Script did not return a valid sheet row for this booking — nothing changed",
   },
   not_unique: { th: "ไม่พบรหัสการจองนี้ หรือมีรหัสซ้ำ — ไม่ได้แก้ไขข้อมูล", en: "Booking ID not found or duplicated — nothing changed" },
   stale: { th: "สถานะในชีตเปลี่ยนไปแล้ว กรุณารีเฟรช — ไม่ได้แก้ไขข้อมูล", en: "The sheet changed. Please refresh — nothing changed" },
@@ -342,14 +347,18 @@ function AdminReservations() {
         toast.success(lang === "th"
           ? `อัปเดตสถานะ ${out.booking_id} ในชีตเป็น "${out.booking_status}" แล้ว`
           : `${out.booking_id} is now "${out.booking_status}" in the sheet`);
-        const warn = statusUpdateWarning(out);
-        if (warn) {
-          toast.warning(
-            warn === "table"
-              ? (lang === "th" ? "สถานะการจองเปลี่ยนแล้ว แต่สถานะโต๊ะยังไม่ได้อัปเดต" : "Booking status changed, but the table status was not updated")
-              : (lang === "th" ? "สถานะการจองเปลี่ยนแล้ว แต่ตรวจเวลา updated_at ไม่ได้" : "Booking status changed, but updated_at could not be verified"),
-            { description: out.script_message || undefined, duration: 15000 },
-          );
+        const th = lang === "th";
+        for (const warn of statusUpdateWarnings(out)) {
+          const title = warn === "table"
+            ? (th ? "สถานะการจองเปลี่ยนแล้ว แต่สถานะโต๊ะยังไม่ได้อัปเดต" : "Booking status changed, but the table status was not updated")
+            : out.updated_at_written === true
+              ? (th
+                  ? "สถานะการจองเปลี่ยนแล้ว — ช่อง updated_at ถูกเขียนแล้ว แต่ยืนยันเวลาที่แน่นอนไม่ได้ กรุณาตรวจในชีต"
+                  : "Booking status changed — updated_at was written, but its exact time could not be confirmed. Please check the sheet")
+              : (th
+                  ? "สถานะการจองเปลี่ยนแล้ว แต่ยืนยันไม่ได้ว่าบันทึก updated_at แล้ว กรุณาตรวจในชีต"
+                  : "Booking status changed, but updated_at could not be confirmed. Please check the sheet");
+          toast.warning(title, { description: out.script_message || undefined, duration: 15000 });
         }
         setSheetAction(null);
       }
@@ -954,7 +963,8 @@ function SheetActions({
   onHide: (hide: boolean) => void;
 }) {
   const { lang } = useLang();
-  const next = sb.identifiable ? allowedNextStatuses(sb.status) : [];
+  // Buttons appear only when the script declared can_update_status AND this row has a valid row number.
+  const next = allowedNextStatuses(sb.status).filter((s) => canRequestStatusChange(sb, s, canUpdate));
   const forward = next.find((s) => s === "confirmed" || s === "completed") as "confirmed" | "completed" | undefined;
   return (
     <div className="flex justify-end gap-1">
