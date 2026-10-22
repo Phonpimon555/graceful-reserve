@@ -963,7 +963,8 @@ function SheetActions({
   onHide: (hide: boolean) => void;
 }) {
   const { lang } = useLang();
-  const next = sb.identifiable ? allowedNextStatuses(sb.status) : [];
+  // Buttons appear only when the script declared can_update_status AND this row has a valid row number.
+  const next = allowedNextStatuses(sb.status).filter((s) => canRequestStatusChange(sb, s, canUpdate));
   const forward = next.find((s) => s === "confirmed" || s === "completed") as "confirmed" | "completed" | undefined;
   return (
     <div className="flex justify-end gap-1">
