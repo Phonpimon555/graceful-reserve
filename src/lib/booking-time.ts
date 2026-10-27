@@ -131,10 +131,10 @@ export function bookingsOverlap(a: unknown, b: unknown): boolean {
 export function overlappingStartTimes(start: unknown): string[] {
   const s = startMinutesOf(start);
   if (s === null) return [];
-  const out = [fmtMinutes(s)];
+  const others: string[] = [];
   for (let d = OVERLAP_STEP_MIN; d < BOOKING_DURATION_MIN; d += OVERLAP_STEP_MIN) {
-    if (s - d >= 0) out.push(fmtMinutes(s - d));
-    if (s + d < 24 * 60) out.push(fmtMinutes(s + d));
+    if (s - d >= 0) others.push(fmtMinutes(s - d));
+    if (s + d < 24 * 60) others.push(fmtMinutes(s + d));
   }
-  return out.sort((a, b) => (a === out[0] ? -1 : b === out[0] ? 1 : a.localeCompare(b)));
+  return [fmtMinutes(s), ...others.sort()];
 }
