@@ -5,6 +5,7 @@
  * fetch follows Apps Script's 302 redirect to script.googleusercontent.com automatically.
  */
 import { GAS_API_URL } from "@/lib/auth/gasAuth";
+import { overlappingStartTimes, slotStart } from "@/lib/booking-time";
 
 export type GasResult<T> = { ok: true; data: T } | { ok: false; message: string };
 
@@ -65,7 +66,12 @@ export type AvailabilityResult = {
   available_tables?: { table_id: string; zone: string; capacity: number }[];
 };
 
+/** `time` is always the booking's start time ("18:00"); the booking lasts 2 hours. */
 export type BookingQuery = { date: string; time: string; people: number; zone: string };
+
+/** Build the API query from a picked slot, sending only its start time. */
+export const bookingQuery = (date: string, slot: string, people: number, zone: string): BookingQuery =>
+  ({ date, time: slotStart(slot), people, zone });
 
 export const checkAvailability = (q: BookingQuery) =>
   get<AvailabilityResult>({ action: "availability", ...q }, "ไม่มีโต๊ะว่างในช่วงเวลาที่เลือก กรุณาเลือกเวลาหรือโซนใหม่");
@@ -82,6 +88,40 @@ export type TablesStatusResult = { tables: TableStatusRow[] };
 /** Per-table occupancy for a date/time (and optional zone), read live from the sheet via GET. */
 export const fetchTablesStatus = (q: { date: string; time: string; zone?: string }) =>
   get<TablesStatusResult>({ action: "tables", ...q }, "โหลดสถานะโต๊ะไม่สำเร็จ");
+
+/**
+ * Merge `tables` replies for every overlapping start time into one map:
+ * the table list comes from the selected start, and a table counts as taken
+ * when any reply marks it occupied (another 2-hour booking overlaps).
+ */
+export function mergeOverlapOccupancy(main: TablesStatusResult, others: TablesStatusResult[]): TablesStatusResult {
+  const taken = new Set<string>();
+  for (const r of [main, ...others]) {
+    for (const t of r.tables ?? []) if (t.occupied) taken.add(String(t.table_id).trim().toUpperCase());
+  }
+  return {
+    ...main,
+    tables: (main.tables ?? []).map((t) => ({
+      ...t,
+      occupied: taken.has(String(t.table_id).trim().toUpperCase()),
+    })),
+  };
+}
+
+/**
+ * Table occupancy for a 2-hour booking starting at `time`. Reads the existing
+ * `tables` action once per overlapping start time (same GET API, `time` = start)
+ * and fails as a whole if any read fails, so nothing is shown as free unchecked.
+ */
+export async function fetchTablesStatusForPeriod(q: { date: string; time: string; zone?: string }): Promise<GasResult<TablesStatusResult>> {
+  const starts = overlappingStartTimes(q.time);
+  if (!starts.length) return { ok: false, message: "เวลาไม่ถูกต้อง" };
+  const results = await Promise.all(starts.map((time) => fetchTablesStatus({ ...q, time })));
+  const failed = results.find((r) => !r.ok);
+  if (failed && !failed.ok) return failed;
+  const [main, ...others] = results.map((r) => (r as { ok: true; data: TablesStatusResult }).data);
+  return { ok: true, data: mergeOverlapOccupancy(main, others) };
+}
 
 export const createBooking = (member_id: string, q: BookingQuery, opts?: { table_id?: string; name?: string; phone?: string }) =>
   call<BookingResult>({ action: "booking", member_id, ...q, ...opts }, "จองไม่สำเร็จ กรุณาลองใหม่");
