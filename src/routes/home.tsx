@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
-import { bookingRange, bookingsOverlap, isSlotBookable, isPastDateKey, slotStart, toDateKey, useBangkokNow } from "@/lib/booking-time";
+import { bookingRange, bookingsOverlap, endsByClosing, isSlotBookable, isPastDateKey, slotStart, toDateKey, useBangkokNow } from "@/lib/booking-time";
 import { TIME_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
   fetchActiveTables, fetchReservationsForDate,
@@ -345,7 +345,7 @@ function BookingSection() {
         <Card className="p-6 shadow-soft border-border/60 lg:col-span-2 hover:shadow-elegant transition-shadow">
           <StepHeader n={2} title={t("step2")} icon={<Clock className="h-3.5 w-3.5" />} />
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {TIME_SLOTS.map((s) => {
+            {TIME_SLOTS.filter((s) => endsByClosing(s)).map((s) => {
               const count = slotCounts[s] ?? 0;
               const full = count >= tables.length && tables.length > 0;
               const active = slot === s;
@@ -377,8 +377,8 @@ function BookingSection() {
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
             {lang === "th"
-              ? "การจองแต่ละครั้งใช้เวลา 2 ชั่วโมง นับจากเวลาเริ่มที่เลือก"
-              : "Each booking lasts 2 hours from the start time you choose."}
+              ? "การจองแต่ละครั้งใช้เวลา 2 ชั่วโมง นับจากเวลาเริ่มที่เลือก (ร้านปิด 21:00)"
+              : "Each booking lasts 2 hours from the start time you choose (we close at 21:00)."}
           </p>
         </Card>
       </div>
