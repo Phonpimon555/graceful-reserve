@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
-import { isSlotBookable, isPastDateKey, toDateKey, useBangkokNow } from "@/lib/booking-time";
+import { bookingRange, bookingsOverlap, isSlotBookable, isPastDateKey, slotStart, toDateKey, useBangkokNow } from "@/lib/booking-time";
 import { TIME_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
   fetchActiveTables, fetchReservationsForDate,
@@ -27,8 +27,8 @@ import {
 } from "@/lib/reservations";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  cancelBooking, checkAvailability, createBooking, fetchHistory, fetchTablesStatus,
-  safePeople, sheetDate, sheetSlot, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
+  bookingQuery, cancelBooking, checkAvailability, createBooking, fetchHistory, fetchTablesStatusForPeriod,
+  safePeople, sheetDate, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
 } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -224,7 +224,8 @@ function BookingSection() {
   const gasTablesQ = useQuery({
     queryKey: ["gasTables", dateKey, slot],
     queryFn: async () => {
-      const r = await fetchTablesStatus({ date: dateKey, time: slot! });
+      // A booking lasts 2 hours, so a table is taken if any overlapping booking uses it.
+      const r = await fetchTablesStatusForPeriod({ date: dateKey, time: slotStart(slot!) });
       if (!r.ok) throw new Error(r.message);
       return r.data;
     },
@@ -272,7 +273,7 @@ function BookingSection() {
         (gasTablesQ.data?.tables ?? []).filter((t) => t.occupied).map((t) => t.table_id),
       );
     }
-    return new Set(reservations.filter((r) => r.time_slot === slot).map((r) => r.table_id));
+    return new Set(reservations.filter((r) => bookingsOverlap(r.time_slot, slot)).map((r) => r.table_id));
   }, [reservations, slot, gasSupported, gasTablesQ.data]);
 
   const filteredTables = useMemo(
@@ -364,7 +365,7 @@ function BookingSection() {
                       : "bg-card hover:border-gold hover:shadow-soft hover:-translate-y-0.5",
                   )}
                 >
-                  {s}
+                  {bookingRange(s)}
                   {full && (
                     <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold uppercase tracking-wider bg-destructive text-destructive-foreground rounded-full px-1.5 py-0.5">
                       {t("full")}
@@ -374,6 +375,11 @@ function BookingSection() {
               );
             })}
           </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {lang === "th"
+              ? "การจองแต่ละครั้งใช้เวลา 2 ชั่วโมง นับจากเวลาเริ่มที่เลือก"
+              : "Each booking lasts 2 hours from the start time you choose."}
+          </p>
         </Card>
       </div>
 
@@ -825,7 +831,7 @@ function BookingDialog({
   const [checking, setChecking] = useState(false);
   const [availErr, setAvailErr] = useState<string | null>(null);
   const query = table && slot && date
-    ? { date, time: slot, people: partySize, zone: sheetZone(table.zone) }
+    ? bookingQuery(date, slot, partySize, sheetZone(table.zone))
     : null;
   useEffect(() => {
     if (!open || !query) { setAssigned(null); setAvailErr(null); return; }
@@ -855,13 +861,13 @@ function BookingDialog({
     inFlight.current = true;
     setBusy(true);
     try {
-      // Block a second active booking by the same member for the same date + time.
+      // Block a second active booking by the same member whose 2-hour period overlaps.
       let mine: Awaited<ReturnType<typeof fetchHistory>>;
       try { mine = await fetchHistory(user.id); } catch (e) { toast.error((e as Error).message); return; }
-      const dup = mine.find((b) => sheetDate(String(b.date)) === date && sheetSlot(b.time) === slot
+      const dup = mine.find((b) => sheetDate(String(b.date)) === date && bookingsOverlap(b.time, slot)
         && !/cancel|ยกเลิก/i.test(String(b.booking_status ?? "")));
       if (dup) {
-        const msg = `คุณมีการจองในวันและเวลานี้แล้ว (${dup.booking_id})`;
+        const msg = `คุณมีการจองในช่วงเวลาที่ทับซ้อนกันแล้ว (${dup.booking_id} · ${bookingRange(dup.time)})`;
         setAvailErr(msg); toast.error(msg); return;
       }
       // Re-check availability right before saving.
@@ -872,6 +878,18 @@ function BookingDialog({
         const msg = lang === "th"
           ? `โต๊ะ ${table.id} ไม่ว่างในวันและเวลานี้ กรุณาเลือกโต๊ะอื่น`
           : `Table ${table.id} is not available at this time. Please choose another table.`;
+        setAvailErr(msg); toast.error(msg);
+        qc.invalidateQueries({ queryKey: ["gasTables"] });
+        return;
+      }
+      // The API checks only the exact start time; also check bookings that overlap the 2-hour period.
+      const period = await fetchTablesStatusForPeriod({ date, time: query.time });
+      if (!period.ok) { setAvailErr(period.message); toast.error(period.message); return; }
+      const picked = period.data.tables.find((t) => String(t.table_id).trim().toUpperCase() === table.id.trim().toUpperCase());
+      if (!picked || picked.occupied) {
+        const msg = lang === "th"
+          ? `โต๊ะ ${table.id} มีการจองในช่วง ${bookingRange(slot)} แล้ว กรุณาเลือกเวลาหรือโต๊ะอื่น`
+          : `Table ${table.id} is already booked during ${bookingRange(slot)}. Please choose another time or table.`;
         setAvailErr(msg); toast.error(msg);
         qc.invalidateQueries({ queryKey: ["gasTables"] });
         return;
@@ -900,7 +918,7 @@ function BookingDialog({
         id: String(d.booking_id), name: String(d.name ?? cleanName), phone: String(d.phone ?? cleanPhone),
         table: String(d.table_id ?? table.id), zone: String(d.zone ?? recheck.data.zone),
         people: safePeople(d.people) ?? partySize, status: String(d.booking_status ?? "Confirmed"),
-        date: String(d.date ?? date), time: d.time ? sheetSlot(d.time) : slot,
+        date: String(d.date ?? date), time: bookingRange(d.time ? d.time : slot),
       });
     } finally {
       inFlight.current = false;
@@ -956,7 +974,7 @@ function BookingDialog({
           <div className="rounded-xl border bg-muted/30 p-4 grid grid-cols-3 gap-3 text-center">
             <DetailCell label={t("table")} value={table.id} />
             <DetailCell label={t("step1")} value={date ? format(new Date(date), "MMM d") : "—"} />
-            <DetailCell label={t("step2")} value={slot ?? "—"} small />
+            <DetailCell label={t("step2")} value={slot ? bookingRange(slot) : "—"} small />
             <DetailCell label={lang === "th" ? "จำนวนคน" : "Guests"} value={`${partySize}`} />
             <DetailCell label={lang === "th" ? "โซน" : "Zone"} value={zoneLabel(table.zone, lang)} small />
             <DetailCell label={lang === "th" ? "ความจุ" : "Seats"} value={`${table.capacity}`} />
@@ -1019,7 +1037,7 @@ function CancelDialog({ open, onClose }: { open: boolean; onClose: () => void })
         customer_name: String(b.name ?? ""),
         phone: String(b.phone ?? ""),
         reservation_date: sheetDate(String(b.date)),
-        time_slot: sheetSlot(b.time),
+        time_slot: bookingRange(b.time),
         party_size: safePeople(b.people),
         table_id: String(b.table_id ?? ""),
         zone: String(b.zone ?? ""),
