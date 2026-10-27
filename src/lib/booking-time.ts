@@ -62,6 +62,7 @@ export function isSlotBookable(
   now: BangkokNow = bangkokNow(),
 ) {
   if (!dateKey) return false;
+  if (!endsByClosing(slot)) return false;
   if (dateKey < now.dateKey) return false;
   if (dateKey > now.dateKey) return true;
   return slotStartMinutes(slot) > now.minutes;
@@ -84,6 +85,8 @@ export function useBangkokNow(intervalMs = 30_000): BangkokNow {
 
 /** Each booking holds its table for 2 hours (e.g. 18:00 → 20:00). */
 export const BOOKING_DURATION_MIN = 120;
+/** The restaurant closes at 21:00; a 2-hour booking must end by then. */
+export const CLOSING_MIN = 21 * 60;
 /** Granularity used to look for other bookings that start inside the 2-hour window. */
 export const OVERLAP_STEP_MIN = 30;
 
@@ -137,4 +140,10 @@ export function overlappingStartTimes(start: unknown): string[] {
     if (s + d < 24 * 60) others.push(fmtMinutes(s + d));
   }
   return [fmtMinutes(s), ...others.sort()];
+}
+
+/** True when a 2-hour booking starting at `v` finishes by closing time (21:00). */
+export function endsByClosing(v: unknown): boolean {
+  const m = startMinutesOf(v);
+  return m !== null && m + BOOKING_DURATION_MIN <= CLOSING_MIN;
 }

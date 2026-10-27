@@ -1,6 +1,6 @@
 /// <reference types="bun" />
 import { describe, expect, it } from "bun:test";
-import { bookingRange, bookingsOverlap, overlappingStartTimes, slotStart } from "./booking-time";
+import { bookingRange, bookingsOverlap, endsByClosing, isSlotBookable, overlappingStartTimes, slotStart } from "./booking-time";
 import { bookingQuery, mergeOverlapOccupancy } from "./gasBooking";
 
 describe("2-hour bookings", () => {
@@ -44,5 +44,12 @@ describe("2-hour bookings", () => {
     expect(merged.tables.map((t) => [t.table_id, t.occupied])).toEqual([
       ["R01", true], ["R02", false], ["R03", true],
     ]);
+  });
+
+  it("the last booking starts at 19:00 so it ends by the 21:00 closing", () => {
+    expect(endsByClosing("19:00-20:00")).toBe(true);
+    expect(endsByClosing("20:00-21:00")).toBe(false);
+    expect(isSlotBookable("2026-12-01", "20:00-21:00", { dateKey: "2026-11-01", minutes: 600 })).toBe(false);
+    expect(isSlotBookable("2026-12-01", "19:00-20:00", { dateKey: "2026-11-01", minutes: 600 })).toBe(true);
   });
 });
