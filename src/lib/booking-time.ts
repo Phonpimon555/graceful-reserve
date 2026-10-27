@@ -76,3 +76,65 @@ export function useBangkokNow(intervalMs = 30_000): BangkokNow {
   }, [intervalMs]);
   return now;
 }
+
+// ---------------------------------------------------------------------------
+// Two-hour bookings. The sheet stores only the start time; every booking
+// (website or LINE) is treated as lasting BOOKING_DURATION_MIN from that start.
+// ---------------------------------------------------------------------------
+
+/** Each booking holds its table for 2 hours (e.g. 18:00 → 20:00). */
+export const BOOKING_DURATION_MIN = 120;
+/** Granularity used to look for other bookings that start inside the 2-hour window. */
+export const OVERLAP_STEP_MIN = 30;
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const fmtMinutes = (m: number) => `${pad2(Math.floor(m / 60) % 24)}:${pad2(m % 60)}`;
+
+/**
+ * Start minute of any time value we may see: a website slot ("18:00-19:00"),
+ * a sheet/LINE start time ("18:00", "18.00", "9.00"). Null when unreadable.
+ */
+export function startMinutesOf(v: unknown): number | null {
+  const m = String(v ?? "").trim().match(/^(\d{1,2})[.:](\d{2})/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+/** "HH:MM" start time sent to the API (the API's `time` is always the start). */
+export function slotStart(v: unknown): string {
+  const m = startMinutesOf(v);
+  return m === null ? String(v ?? "").trim() : fmtMinutes(m);
+}
+
+/** Customer-facing booking period, e.g. "18:00" → "18:00-20:00". */
+export function bookingRange(v: unknown): string {
+  const m = startMinutesOf(v);
+  if (m === null) return String(v ?? "").trim();
+  return `${fmtMinutes(m)}-${fmtMinutes(m + BOOKING_DURATION_MIN)}`;
+}
+
+/** Two 2-hour bookings overlap when their starts are less than 2 hours apart. */
+export function bookingsOverlap(a: unknown, b: unknown): boolean {
+  const x = startMinutesOf(a);
+  const y = startMinutesOf(b);
+  if (x === null || y === null) return false;
+  return Math.abs(x - y) < BOOKING_DURATION_MIN;
+}
+
+/**
+ * Every start time whose 2-hour booking would overlap a booking starting at `start`
+ * (the start itself first), e.g. 18:00 → 18:00, 16:30, 17:00, 17:30, 18:30, 19:00, 19:30.
+ */
+export function overlappingStartTimes(start: unknown): string[] {
+  const s = startMinutesOf(start);
+  if (s === null) return [];
+  const out = [fmtMinutes(s)];
+  for (let d = OVERLAP_STEP_MIN; d < BOOKING_DURATION_MIN; d += OVERLAP_STEP_MIN) {
+    if (s - d >= 0) out.push(fmtMinutes(s - d));
+    if (s + d < 24 * 60) out.push(fmtMinutes(s + d));
+  }
+  return out.sort((a, b) => (a === out[0] ? -1 : b === out[0] ? 1 : a.localeCompare(b)));
+}
