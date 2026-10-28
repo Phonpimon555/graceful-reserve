@@ -109,18 +109,16 @@ export function mergeOverlapOccupancy(main: TablesStatusResult, others: TablesSt
 }
 
 /**
- * Table occupancy for a 2-hour booking starting at `time`. Reads the existing
- * `tables` action once per overlapping start time (same GET API, `time` = start)
- * and fails as a whole if any read fails, so nothing is shown as free unchecked.
+ * Table occupancy for a 2-hour booking starting at `time`. The deployed
+ * `tables` action already marks a table occupied when another booking starts
+ * less than 2 hours before or after `time`, so it is read exactly once with the
+ * start time. Re-reading neighbouring start times would widen the window to
+ * ~3.5 hours and wrongly mark e.g. 13:00 taken after an 11:00-13:00 booking.
  */
 export async function fetchTablesStatusForPeriod(q: { date: string; time: string; zone?: string }): Promise<GasResult<TablesStatusResult>> {
-  const starts = overlappingStartTimes(q.time);
-  if (!starts.length) return { ok: false, message: "เวลาไม่ถูกต้อง" };
-  const results = await Promise.all(starts.map((time) => fetchTablesStatus({ ...q, time })));
-  const failed = results.find((r) => !r.ok);
-  if (failed && !failed.ok) return failed;
-  const [main, ...others] = results.map((r) => (r as { ok: true; data: TablesStatusResult }).data);
-  return { ok: true, data: mergeOverlapOccupancy(main, others) };
+  const start = overlappingStartTimes(q.time)[0];
+  if (!start) return { ok: false, message: "เวลาไม่ถูกต้อง" };
+  return fetchTablesStatus({ ...q, time: start });
 }
 
 export const createBooking = (member_id: string, q: BookingQuery, opts?: { table_id?: string; name?: string; phone?: string }) =>

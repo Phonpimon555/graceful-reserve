@@ -53,3 +53,22 @@ describe("2-hour bookings", () => {
     expect(isSlotBookable("2026-12-01", "19:00-20:00", { dateKey: "2026-11-01", minutes: 600 })).toBe(true);
   });
 });
+
+describe("table map reads the sheet once per booking", () => {
+  it("asks only for the chosen start time, so an 11:00-13:00 booking does not block 13:00", async () => {
+    const asked: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string) => {
+      asked.push(new URL(url).searchParams.get("time") ?? "");
+      return new Response(JSON.stringify({ status: "success", tables: [] }));
+    }) as typeof fetch;
+    try {
+      const { fetchTablesStatusForPeriod } = await import("./gasBooking");
+      const r = await fetchTablesStatusForPeriod({ date: "2026-10-31", time: "13:00-14:00" });
+      expect(r.ok).toBe(true);
+      expect(asked).toEqual(["13:00"]);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});
