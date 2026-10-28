@@ -20,7 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { cn } from "@/lib/utils";
 
 import { bookingRange, bookingsOverlap, endsByClosing, isSlotBookable, isPastDateKey, slotStart, toDateKey, useBangkokNow } from "@/lib/booking-time";
-import { TIME_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
+import { CUSTOMER_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
   fetchActiveTables, fetchReservationsForDate,
   type TableRow, type Reservation,
@@ -345,7 +345,7 @@ function BookingSection() {
         <Card className="p-6 shadow-soft border-border/60 lg:col-span-2 hover:shadow-elegant transition-shadow">
           <StepHeader n={2} title={t("step2")} icon={<Clock className="h-3.5 w-3.5" />} />
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {TIME_SLOTS.filter((s) => endsByClosing(s)).map((s) => {
+            {CUSTOMER_SLOTS.filter((s) => endsByClosing(s)).map((s) => {
               const count = slotCounts[s] ?? 0;
               const full = count >= tables.length && tables.length > 0;
               const active = slot === s;
