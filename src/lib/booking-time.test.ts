@@ -72,3 +72,11 @@ describe("table map reads the sheet once per booking", () => {
     }
   });
 });
+
+describe("customer booking rounds", () => {
+  it("offers exactly the five 2-hour rounds from 11:00 to 21:00", async () => {
+    const { CUSTOMER_SLOTS } = await import("./i18n");
+    expect([...CUSTOMER_SLOTS]).toEqual(["11:00-13:00","13:00-15:00","15:00-17:00","17:00-19:00","19:00-21:00"]);
+    expect(CUSTOMER_SLOTS.every((s) => endsByClosing(s) && bookingRange(s) === s)).toBe(true);
+  });
+});

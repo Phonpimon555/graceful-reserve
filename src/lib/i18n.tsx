@@ -142,6 +142,11 @@ export const TIME_SLOTS = [
   "16:00-17:00","17:00-18:00","18:00-19:00","19:00-20:00","20:00-21:00",
 ] as const;
 
+/** Customer booking rounds (2 hours each) shown on the website. */
+export const CUSTOMER_SLOTS = [
+  "11:00-13:00","13:00-15:00","15:00-17:00","17:00-19:00","19:00-21:00",
+] as const;
+
 export const ZONES = ["Riverside", "AirConditioned", "VIP"] as const;
 export type Zone = (typeof ZONES)[number];
 
