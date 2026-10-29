@@ -20,6 +20,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { cn } from "@/lib/utils";
 
 import { bookingRange, bookingsOverlap, endsByClosing, isSlotBookable, isPastDateKey, slotStart, toDateKey, useBangkokNow } from "@/lib/booking-time";
+import { useServerFn } from "@tanstack/react-start";
+import { isOpenAt, TOTAL_TABLES } from "@/lib/live-stats";
+import { getTablesAvailableNow } from "@/lib/live-stats.functions";
 import { CUSTOMER_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
   fetchActiveTables, fetchReservationsForDate,
@@ -283,17 +286,18 @@ function BookingSection() {
     [tables, zoneFilter, partySize],
   );
 
-  const totals = useMemo(() => {
-    const total = tables.length || 50;
-    const reserved = reservedTableIds.size;
-    return {
-      total,
-      reserved,
-      available: total - reserved,
-      bookingsToday: reservations.length,
-      occupancy: total ? Math.round((reserved / total) * 100) : 0,
-    };
-  }, [tables, reservedTableIds, reservations]);
+  // Tables free right now (Bangkok time), from the real Google Sheets bookings.
+  // Key starts with "gasTables" so every existing refresh after booking/cancel also refreshes it.
+  const open = isOpenAt(bkkNow);
+  const getNow = useServerFn(getTablesAvailableNow);
+  const nowQ = useQuery({
+    queryKey: ["gasTables", "now"],
+    queryFn: () => getNow(),
+    enabled: open,
+    refetchInterval: 30_000,
+    retry: false,
+  });
+  const nowData = nowQ.data?.ok ? nowQ.data : null;
 
   return (
     <section id="booking" className="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-20 space-y-8">
@@ -304,11 +308,19 @@ function BookingSection() {
       />
 
       {/* Dashboard */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-        <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailable")} value={`${totals.available}`} suffix={`/${totals.total}`} tone="gold" />
-        <Stat icon={<Users className="h-4 w-4" />} label={t("dashReserved")} value={`${totals.reserved}`} suffix={`/${totals.total}`} tone="primary" />
-        <Stat icon={<CalendarIcon className="h-4 w-4" />} label={t("dashToday")} value={`${totals.bookingsToday}`} tone="muted" />
-        <Stat icon={<Waves className="h-4 w-4" />} label={t("dashOccupancy")} value={`${totals.occupancy}%`} tone="primary" pulse />
+      <div className="grid grid-cols-1 sm:max-w-xs gap-3 sm:gap-5">
+        {!open || (nowData && !nowData.open) ? (
+          <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableNow")} value={t("closedNow")} tone="muted" />
+        ) : (
+          <Stat
+            icon={<Sparkles className="h-4 w-4" />}
+            label={t("dashAvailableNow")}
+            value={nowData?.available != null ? `${nowData.available}` : "—"}
+            suffix={`/${nowData?.total ?? TOTAL_TABLES}`}
+            tone="gold"
+            pulse={!!nowData}
+          />
+        )}
       </div>
 
       <div className="flex items-center justify-end">
