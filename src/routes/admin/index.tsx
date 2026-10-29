@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
+import { useBangkokNow } from "@/lib/booking-time";
+import { adminTodayCounts } from "@/lib/live-stats";
 import {
   AlertTriangle, Archive, CheckCircle2, Download, Eye, EyeOff, Loader2, Pencil, RefreshCw, RotateCcw, Trash2, XCircle,
 } from "lucide-react";
@@ -199,11 +201,13 @@ function AdminReservations() {
   const listSheet = useServerFn(listSheetBookings);
   const hideSheet = useServerFn(setSheetBookingHidden);
   const updateSheet = useServerFn(updateSheetBookingStatus);
-  // Sheets is quota-limited: load on open and on the refresh button only.
+  // Sheets is quota-limited: reload once a minute (plus the refresh button) so
+  // today's counts and new website/LINE bookings appear without reloading the page.
   const sheetQ = useQuery({
     queryKey: ["sheetBookings"],
     queryFn: () => listSheet(),
     staleTime: 60_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: false,
     retry: false,
   });
@@ -307,10 +311,13 @@ function AdminReservations() {
     [viewRows],
   );
 
-  const today = format(new Date(), "yyyy-MM-dd");
-  const todayRes = allRows.filter((r) => r.date === today && r.status !== "cancelled" && r.status !== "unknown");
-  const totalTables = tablesQ.data?.filter((t) => t.status !== "disabled").length ?? 0;
-  const occupancy = totalTables > 0 ? Math.round((todayRes.length / totalTables) * 100) : 0;
+  // Today's counts from the Google Sheets rows (website + LINE), on the Bangkok calendar.
+  // Hidden rows still count: hiding only removes them from the table view.
+  const bkkNow = useBangkokNow();
+  const todayCounts = useMemo(
+    () => (sheetData ? adminTodayCounts(sheetData.rows, bkkNow.dateKey) : null),
+    [sheetData, bkkNow.dateKey],
+  );
 
   const switchView = (next: "main" | "hidden") => {
     if (next === view) return;
@@ -482,17 +489,25 @@ function AdminReservations() {
 
         <AdminTabs />
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:max-w-2xl">
           <AdminStat
-            label={lang === "th" ? "การจองทั้งหมด" : "Total reservations"}
-            value={allRows.length}
-            hint={lang === "th"
-              ? `แสดงในตาราง ${visible.length} · ซ่อน ${hidden.length}`
-              : `In table ${visible.length} · Hidden ${hidden.length}`}
+            label={lang === "th" ? "การจองวันนี้" : "Bookings today"}
+            value={todayCounts ? todayCounts.bookingsToday : "—"}
+            hint={todayCounts && todayCounts.unknownStatusToday > 0
+              ? (lang === "th"
+                ? `ไม่นับ ${todayCounts.unknownStatusToday} รายการที่อ่านสถานะไม่ได้`
+                : `${todayCounts.unknownStatusToday} with unreadable status not counted`)
+              : undefined}
           />
-          <AdminStat label={lang === "th" ? "จองแล้ววันนี้" : "Reserved today"} value={`${todayRes.length}/${totalTables}`} />
-          <AdminStat label={lang === "th" ? "ว่างวันนี้" : "Available today"} value={`${Math.max(totalTables - todayRes.length, 0)}/${totalTables}`} />
-          <AdminStat label={lang === "th" ? "อัตราการใช้โต๊ะ" : "Occupancy"} value={`${occupancy}%`} />
+          <AdminStat
+            label={lang === "th" ? "การยกเลิกวันนี้" : "Cancellations today"}
+            value={todayCounts ? todayCounts.cancelledToday : "—"}
+            hint={todayCounts && todayCounts.cancelledNoDate > 0
+              ? (lang === "th"
+                ? `ไม่นับ ${todayCounts.cancelledNoDate} รายการที่ไม่มีวันที่ยกเลิก`
+                : `${todayCounts.cancelledNoDate} without a cancellation date not counted`)
+              : undefined}
+          />
         </div>
 
         {(sheetFailure || sheetQ.error) && (
