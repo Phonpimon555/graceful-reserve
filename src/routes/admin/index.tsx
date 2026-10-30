@@ -489,7 +489,7 @@ function AdminReservations() {
 
         <AdminTabs />
 
-        <div className="grid grid-cols-2 gap-3 lg:max-w-2xl">
+        <div className="grid w-full grid-cols-2 gap-3 sm:gap-5">
           <AdminStat
             label={lang === "th" ? "การจองวันนี้" : "Bookings today"}
             value={todayCounts ? todayCounts.bookingsToday : "—"}
@@ -1101,10 +1101,10 @@ function SheetDetailDialog({ sb, onClose }: { sb: SheetBooking | null; onClose: 
 
 function AdminStat({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
-    <Card className="p-5 border-border/60 shadow-soft">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-1 font-sans text-3xl font-semibold tabular-nums text-primary">{value}</div>
-      {hint && <div className="mt-1 text-xs font-sans tabular-nums text-muted-foreground">{hint}</div>}
+    <Card className="flex w-full flex-col items-center justify-center px-4 py-6 sm:py-8 text-center border-border/60 shadow-soft">
+      <div className="text-xs sm:text-sm uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <div className="mt-2 font-sans text-4xl sm:text-5xl font-semibold tabular-nums text-primary">{value}</div>
+      {hint && <div className="mt-2 text-xs font-sans tabular-nums text-muted-foreground">{hint}</div>}
     </Card>
   );
 }
