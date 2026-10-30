@@ -308,7 +308,7 @@ function BookingSection() {
       />
 
       {/* Dashboard */}
-      <div className="grid grid-cols-1 sm:max-w-xs gap-3 sm:gap-5">
+      <div className="w-full">
         {!open || (nowData && !nowData.open) ? (
           <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableNow")} value={t("closedNow")} tone="muted" />
         ) : (
@@ -767,17 +767,17 @@ function Stat({
     muted: "bg-muted text-foreground",
   }[tone];
   return (
-    <Card className="relative overflow-hidden p-5 border-border/60 shadow-soft bg-card hover:shadow-elegant hover:-translate-y-0.5 transition-all duration-300">
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className={cn("grid h-9 w-9 place-items-center rounded-xl shadow-soft", ring)}>
+    <Card className="relative w-full overflow-hidden px-5 py-7 sm:py-9 border-border/60 shadow-soft bg-card hover:shadow-elegant transition-all duration-300">
+      {pulse && <span className="absolute right-5 top-5 h-2.5 w-2.5 rounded-full bg-success animate-pulse-dot" />}
+      <div className="flex flex-col items-center text-center">
+        <div className={cn("grid h-11 w-11 place-items-center rounded-xl shadow-soft mb-3", ring)}>
           {icon}
         </div>
-        {pulse && <span className="h-2 w-2 rounded-full bg-success animate-pulse-dot" />}
-      </div>
-      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
-      <div className="mt-1 font-sans font-bold text-3xl sm:text-4xl text-foreground animate-count tabular-nums tracking-tight">
-        {value}
-        {suffix && <span className="text-base text-muted-foreground font-medium ml-1">{suffix}</span>}
+        <div className="text-xs sm:text-sm uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
+        <div className="mt-2 font-sans font-bold text-4xl sm:text-5xl text-foreground animate-count tabular-nums tracking-tight">
+          {value}
+          {suffix && <span className="text-lg sm:text-xl text-muted-foreground font-medium ml-1">{suffix}</span>}
+        </div>
       </div>
     </Card>
   );
