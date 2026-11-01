@@ -292,8 +292,7 @@ function BookingSection() {
   const freeHint = slot && date
     ? [
         format(date, "d MMM yyyy"),
-        bookingRange(slot),
-        `${partySize} ${lang === "th" ? "คน" : partySize === 1 ? "guest" : "guests"}`,
+        bookingRange(slot).replace("-", "–"),
         zoneFilter === "all" ? (lang === "th" ? "ทุกโซน" : "All zones") : zoneLabel(zoneFilter, lang),
       ].join(" · ")
     : undefined;
