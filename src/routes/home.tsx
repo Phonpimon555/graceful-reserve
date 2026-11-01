@@ -20,9 +20,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { cn } from "@/lib/utils";
 
 import { bookingRange, bookingsOverlap, endsByClosing, isSlotBookable, isPastDateKey, slotStart, toDateKey, useBangkokNow } from "@/lib/booking-time";
-import { useServerFn } from "@tanstack/react-start";
-import { isOpenAt, TOTAL_TABLES } from "@/lib/live-stats";
-import { getTablesAvailableNow } from "@/lib/live-stats.functions";
 import { CUSTOMER_SLOTS, useLang, zoneLabel, ZONES, type Zone } from "@/lib/i18n";
 import {
   fetchActiveTables, fetchReservationsForDate,
@@ -30,7 +27,7 @@ import {
 } from "@/lib/reservations";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  bookingQuery, cancelBooking, checkAvailability, createBooking, fetchHistory, fetchTablesStatusForPeriod,
+  bookingQuery, cancelBooking, checkAvailability, countFreeTables, createBooking, fetchHistory, fetchTablesStatusForPeriod,
   safePeople, sheetDate, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
 } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
@@ -286,18 +283,20 @@ function BookingSection() {
     [tables, zoneFilter, partySize],
   );
 
-  // Tables free right now (Bangkok time), from the real Google Sheets bookings.
-  // Key starts with "gasTables" so every existing refresh after booking/cancel also refreshes it.
-  const open = isOpenAt(bkkNow);
-  const getNow = useServerFn(getTablesAvailableNow);
-  const nowQ = useQuery({
-    queryKey: ["gasTables", "now"],
-    queryFn: () => getNow(),
-    enabled: open,
-    refetchInterval: 30_000,
-    retry: false,
-  });
-  const nowData = nowQ.data?.ok ? nowQ.data : null;
+  // Free tables for the selected date + 2-hour period, from the same live `tables`
+  // reply that colours the map. Guests and zone filter it instantly on the client.
+  const freeCount = useMemo(
+    () => (gasTablesQ.data ? countFreeTables(gasTablesQ.data.tables ?? [], { zone: zoneFilter, people: partySize }) : null),
+    [gasTablesQ.data, zoneFilter, partySize],
+  );
+  const freeHint = slot && date
+    ? [
+        format(date, "d MMM yyyy"),
+        bookingRange(slot),
+        `${partySize} ${lang === "th" ? "คน" : partySize === 1 ? "guest" : "guests"}`,
+        zoneFilter === "all" ? (lang === "th" ? "ทุกโซน" : "All zones") : zoneLabel(zoneFilter, lang),
+      ].join(" · ")
+    : undefined;
 
   return (
     <section id="booking" className="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-20 space-y-8">
@@ -308,17 +307,22 @@ function BookingSection() {
       />
 
       {/* Dashboard */}
-      <div className="w-full">
-        {!open || (nowData && !nowData.open) ? (
-          <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableNow")} value={t("closedNow")} tone="muted" />
+      <div className="w-full" aria-live="polite">
+        {!date || !slot ? (
+          <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableSlot")} message={t("pickDateTimeForTables")} tone="muted" />
+        ) : gasTablesQ.isError ? (
+          <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableSlot")} message={t("tablesCheckFailed")} tone="muted" hint={freeHint} />
+        ) : !freeCount ? (
+          <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableSlot")} message={t("checkingTables")} tone="muted" hint={freeHint} />
         ) : (
           <Stat
             icon={<Sparkles className="h-4 w-4" />}
-            label={t("dashAvailableNow")}
-            value={nowData?.available != null ? `${nowData.available}` : "—"}
-            suffix={`/${nowData?.total ?? TOTAL_TABLES}`}
+            label={t("dashAvailableSlot")}
+            value={`${freeCount.free}`}
+            suffix={`/${freeCount.total} ${t("tablesUnit")}`}
             tone="gold"
-            pulse={!!nowData}
+            pulse
+            hint={freeHint}
           />
         )}
       </div>
