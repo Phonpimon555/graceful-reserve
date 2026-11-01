@@ -85,6 +85,20 @@ export type TableStatusRow = { table_id: string; zone: string; capacity: number;
 
 export type TablesStatusResult = { tables: TableStatusRow[] };
 
+/**
+ * Free tables for the customer's chosen date/period, guests and zone, counted
+ * from one `tables` reply. `occupied` comes from the script itself (same 2-hour
+ * overlap rule and closed-table check as availability/booking), so nothing here
+ * reads Data_Table.status. `zone` is the app zone key or "all".
+ */
+export function countFreeTables(rows: TableStatusRow[], f: { zone: string; people: number }) {
+  const match = rows.filter((t) =>
+    String(t.table_id ?? "").trim() !== "" &&
+    (f.zone === "all" || zoneFromSheet(String(t.zone ?? "")) === f.zone) &&
+    Number(t.capacity) >= f.people);
+  return { free: match.filter((t) => !t.occupied).length, total: match.length };
+}
+
 /** Per-table occupancy for a date/time (and optional zone), read live from the sheet via GET. */
 export const fetchTablesStatus = (q: { date: string; time: string; zone?: string }) =>
   get<TablesStatusResult>({ action: "tables", ...q }, "โหลดสถานะโต๊ะไม่สำเร็จ");
