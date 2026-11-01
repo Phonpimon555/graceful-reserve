@@ -760,10 +760,13 @@ function StepHeader({ n, title, icon }: { n: number; title: string; icon?: React
 }
 
 function Stat({
-  label, value, suffix, tone, pulse, icon,
+  label, value, suffix, tone, pulse, icon, message, hint,
 }: {
-  label: string; value: string; suffix?: string;
+  label: string; value?: string; suffix?: string;
   tone: "gold" | "primary" | "muted"; pulse?: boolean; icon?: React.ReactNode;
+  /** Shown instead of the number (prompt, loading or error). */
+  message?: string;
+  hint?: string;
 }) {
   const ring = {
     gold: "bg-gradient-gold text-primary",
@@ -778,10 +781,15 @@ function Stat({
           {icon}
         </div>
         <div className="text-xs sm:text-sm uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
-        <div className="mt-2 font-sans font-bold text-4xl sm:text-5xl text-foreground animate-count tabular-nums tracking-tight">
-          {value}
-          {suffix && <span className="text-lg sm:text-xl text-muted-foreground font-medium ml-1">{suffix}</span>}
-        </div>
+        {message ? (
+          <div className="mt-3 text-base sm:text-lg font-medium text-muted-foreground">{message}</div>
+        ) : (
+          <div className="mt-2 font-sans font-bold text-4xl sm:text-5xl text-foreground animate-count tabular-nums tracking-tight">
+            {value}
+            {suffix && <span className="text-lg sm:text-xl text-muted-foreground font-medium ml-1">{suffix}</span>}
+          </div>
+        )}
+        {hint && <div className="mt-2 text-xs sm:text-sm text-muted-foreground">{hint}</div>}
       </div>
     </Card>
   );
