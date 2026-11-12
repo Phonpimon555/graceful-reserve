@@ -87,7 +87,7 @@ export type TableStatusRow = {
   capacity: number;
   status?: string;
   occupied: boolean;
-  /** False for an admin-only row until the same ID is registered in Data_Table. */
+  /** False until Data_Table accepts this ID with the admin-selected settings. */
   sheet_registered?: boolean;
 };
 
@@ -133,7 +133,9 @@ export function mergeAdminTablesWithSheetStatus(
       capacity: Number(row.capacity) || 0,
       status: sheet?.status,
       occupied: Boolean(sheet?.occupied),
-      sheet_registered: Boolean(sheet),
+      sheet_registered: Boolean(sheet) &&
+        zoneFromSheet(String(sheet?.zone ?? "")) === row.zone &&
+        Number(sheet?.capacity ?? 0) >= Number(row.capacity),
     }];
   });
 }

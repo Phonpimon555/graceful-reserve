@@ -63,6 +63,24 @@ describe("admin table catalog with live sheet occupancy", () => {
     expect(countFreeTables(merged, { zone: "all", people: 2 })).toEqual({ free: 2, total: 2 });
   });
 
+  it("does not offer a table when the admin zone differs from Data_Table", () => {
+    const merged = mergeAdminTablesWithSheetStatus(
+      [adminRow("R01", "VIP")],
+      [tbl("R01", "ริมบึง", 4)],
+    );
+    expect(merged[0].sheet_registered).toBe(false);
+    expect(countFreeTables(merged, { zone: "VIP", people: 2 })).toEqual({ free: 0, total: 1 });
+  });
+
+  it("does not offer more seats than Data_Table accepts for the table", () => {
+    const merged = mergeAdminTablesWithSheetStatus(
+      [{ ...adminRow("V01", "VIP"), capacity: 10 }],
+      [tbl("V01", "VIP", 8)],
+    );
+    expect(merged[0].sheet_registered).toBe(false);
+    expect(countFreeTables(merged, { zone: "VIP", people: 10 })).toEqual({ free: 0, total: 1 });
+  });
+
   it("keeps real sheet occupancy after matching an admin table", () => {
     const merged = mergeAdminTablesWithSheetStatus(
       [adminRow("R01")],
