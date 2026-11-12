@@ -299,6 +299,14 @@ function BookingSection() {
     [tables, zoneFilter, partySize],
   );
 
+  // If an admin disables or changes a table while it is selected, never keep
+  // submitting the stale selection from an already-open booking dialog.
+  useEffect(() => {
+    setSelectedTable((current) => current
+      ? tables.find((t) => t.id === current.id && t.capacity >= partySize) ?? null
+      : null);
+  }, [tables, partySize]);
+
   // The admin's active catalog and the sheet's live occupancy feed both this
   // count and the map, so disabling/adding a table updates both consistently.
   const freeCount = useMemo(

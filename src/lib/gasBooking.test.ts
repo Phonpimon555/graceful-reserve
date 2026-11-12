@@ -35,6 +35,12 @@ describe("admin table catalog with live sheet occupancy", () => {
     );
     expect(merged.map((t) => t.table_id)).toEqual(["R01"]);
     expect(countFreeTables(merged, { zone: "all", people: 2 })).toEqual({ free: 1, total: 1 });
+
+    const reenabled = mergeAdminTablesWithSheetStatus(
+      [adminRow("R01"), adminRow("R02")],
+      [tbl("R01", "ริมบึง", 4), tbl("R02", "ริมบึง", 4)],
+    );
+    expect(countFreeTables(reenabled, { zone: "all", people: 2 })).toEqual({ free: 2, total: 2 });
   });
 
   it("adds an active admin table in its selected zone and increases the total", () => {
