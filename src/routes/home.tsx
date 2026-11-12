@@ -304,7 +304,7 @@ function BookingSection() {
   // submitting the stale selection from an already-open booking dialog.
   useEffect(() => {
     setSelectedTable((current) => current
-      ? tables.find((t) => t.id === current.id && t.capacity >= partySize) ?? null
+      ? tables.find((t) => t.id === current.id && t.capacity >= partySize && t.sheet_registered !== false) ?? null
       : null);
   }, [tables, partySize]);
 
@@ -479,11 +479,15 @@ function BookingSection() {
           <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
             {filteredTables.map((tbl) => {
               const reserved = reservedTableIds.has(tbl.id);
+              const pendingSheet = tbl.sheet_registered === false;
               const selected = selectedTable?.id === tbl.id;
               return (
                 <button
                   key={tbl.id}
-                  disabled={reserved}
+                  disabled={reserved || pendingSheet}
+                  title={pendingSheet
+                    ? (lang === "th" ? "เพิ่มรหัสโต๊ะนี้ใน Data_Table ก่อนเปิดให้จอง" : "Add this table ID to Data_Table before opening it for booking")
+                    : undefined}
                   onClick={() => setSelectedTable(tbl)}
                   className={cn(
                     "group relative rounded-xl border-2 p-3 text-left transition-all duration-300",
@@ -492,6 +496,8 @@ function BookingSection() {
                       ? "bg-gold/25 border-gold shadow-gold scale-[1.06]"
                       : reserved
                       ? "bg-destructive/10 border-destructive/30 opacity-70"
+                      : pendingSheet
+                      ? "bg-muted/60 border-border text-muted-foreground opacity-75"
                       : "bg-success/8 border-success/30 hover:border-gold hover:bg-gold/10 hover:-translate-y-1 hover:shadow-gold",
                   )}
                 >
@@ -499,11 +505,11 @@ function BookingSection() {
                     <span className="font-display text-lg leading-none">{tbl.id}</span>
                     <span className={cn(
                       "h-2 w-2 rounded-full transition-transform group-hover:scale-150",
-                      selected ? "bg-gold" : reserved ? "bg-destructive" : "bg-success",
+                      selected ? "bg-gold" : reserved ? "bg-destructive" : pendingSheet ? "bg-muted-foreground" : "bg-success",
                     )} />
                   </div>
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
-                    {zoneLabel(tbl.zone, lang)}
+                    {pendingSheet ? (lang === "th" ? "รอเชื่อมชีต" : "Sheet setup needed") : zoneLabel(tbl.zone, lang)}
                   </div>
                   <div className="mt-1 flex items-center gap-1 text-[11px] text-foreground/70">
                     <Users className="h-3 w-3" /> {tbl.capacity}
