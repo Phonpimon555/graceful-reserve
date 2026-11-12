@@ -8,6 +8,8 @@ export type TableRow = {
   zone: "Riverside" | "AirConditioned" | "VIP";
   capacity: number;
   status: string;
+  /** True only when the live Sheets table catalog contains this table ID. */
+  sheet_registered?: boolean;
 };
 
 export type Reservation = {

@@ -57,18 +57,22 @@ function AdminTablesPage() {
   const [busy, setBusy] = useState(false);
   const [toDelete, setToDelete] = useState<TableRow | null>(null);
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["tables"] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["tables"] });
+    qc.invalidateQueries({ queryKey: ["activeTables"] });
+  };
 
   const addTable = async () => {
     const num = Number(newTable.table_number);
-    if (!num || num < 1) {
-      toast.error(lang === "th" ? "กรุณากรอกหมายเลขโต๊ะ" : "Please enter a table number");
+    if (!Number.isInteger(num) || num < 1) {
+      toast.error(lang === "th" ? "กรุณากรอกหมายเลขโต๊ะเป็นจำนวนเต็ม" : "Please enter a whole table number");
       return;
     }
     const prefix = newTable.zone === "VIP" ? "V" : newTable.zone === "Riverside" ? "R" : "G";
+    const id = `${prefix}${String(num).padStart(2, "0")}`;
     setBusy(true);
     const { error } = await supabase.from("tables").insert({
-      id: `${prefix}${num}`,
+      id,
       table_number: num,
       zone: newTable.zone,
       capacity: newTable.capacity,
@@ -84,7 +88,7 @@ function AdminTablesPage() {
     refresh();
   };
 
-  const patchTable = async (id: string, patch: Partial<TableRow>) => {
+  const patchTable = async (id: string, patch: Partial<Pick<TableRow, "zone" | "capacity" | "status">>) => {
     const { error } = await supabase.from("tables").update(patch).eq("id", id);
     if (error) toast.error(error.message);
     else refresh();
@@ -122,6 +126,11 @@ function AdminTablesPage() {
           <h2 className="font-display text-xl text-primary mb-4">
             {lang === "th" ? "เพิ่มโต๊ะใหม่" : "Add a table"}
           </h2>
+          <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+            {lang === "th"
+              ? "โต๊ะใหม่จะแสดงและนับรวมบนหน้าเว็บทันที แต่ต้องเพิ่มรหัสเดียวกันใน Data_Table ก่อนจึงจะเปิดให้จองและนับเป็นโต๊ะว่าง"
+              : "New tables appear in the total immediately, but the same ID must be added to Data_Table before they can be booked or counted as free."}
+          </p>
           <div className="grid gap-3 sm:grid-cols-4">
             <div className="space-y-2">
               <Label>{lang === "th" ? "หมายเลขโต๊ะ" : "Table number"}</Label>

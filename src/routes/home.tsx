@@ -28,7 +28,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import {
   bookingQuery, cancelBooking, checkAvailability, countFreeTables, createBooking, fetchHistory, fetchTablesStatusForPeriod,
-  safePeople, sheetDate, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
+  mergeAdminTablesWithSheetStatus, safePeople, sheetDate, sheetZone, zoneFromSheet,
+  type AvailabilityResult, type TableStatusRow,
 } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
 import { pick, useRestaurantInfo } from "@/lib/restaurant-info";
@@ -222,7 +223,11 @@ function BookingSection() {
 
   const dateKey = date ? format(date, "yyyy-MM-dd") : "";
 
-  const tablesQ = useQuery({ queryKey: ["activeTables"], queryFn: fetchActiveTables });
+  const tablesQ = useQuery({
+    queryKey: ["activeTables"],
+    queryFn: fetchActiveTables,
+    refetchInterval: 30_000,
+  });
   const resQ = useQuery({
     queryKey: ["reservations", dateKey],
     queryFn: () => fetchReservationsForDate(dateKey),
@@ -242,14 +247,19 @@ function BookingSection() {
     retry: false,
     refetchInterval: 30_000,
   });
-  const gasSupported = gasTablesQ.isSuccess;
+  const gasSupported = gasTablesQ.isSuccess && tablesQ.isSuccess;
+  const liveTableRows = useMemo(
+    () => mergeAdminTablesWithSheetStatus(tablesQ.data ?? [], gasTablesQ.data?.tables ?? []),
+    [tablesQ.data, gasTablesQ.data],
+  );
   const gasTableRows = useMemo<TableRow[]>(
-    () => (gasTablesQ.data?.tables ?? []).map((t: TableStatusRow) => ({
+    () => liveTableRows.map((t: TableStatusRow) => ({
       id: t.table_id,
       zone: zoneFromSheet(String(t.zone)) as Zone,
       capacity: Number(t.capacity) || 0,
+      sheet_registered: t.sheet_registered,
     }) as unknown as TableRow),
-    [gasTablesQ.data],
+    [liveTableRows],
   );
 
   useEffect(() => {
@@ -278,12 +288,10 @@ function BookingSection() {
   const reservedTableIds = useMemo(() => {
     if (!slot) return new Set<string>();
     if (gasSupported) {
-      return new Set(
-        (gasTablesQ.data?.tables ?? []).filter((t) => t.occupied).map((t) => t.table_id),
-      );
+      return new Set(liveTableRows.filter((t) => t.occupied).map((t) => t.table_id));
     }
     return new Set(reservations.filter((r) => bookingsOverlap(r.time_slot, slot)).map((r) => r.table_id));
-  }, [reservations, slot, gasSupported, gasTablesQ.data]);
+  }, [reservations, slot, gasSupported, liveTableRows]);
 
   const filteredTables = useMemo(
     () => tables
@@ -292,11 +300,19 @@ function BookingSection() {
     [tables, zoneFilter, partySize],
   );
 
-  // Free tables for the selected date + 2-hour period, from the same live `tables`
-  // reply that colours the map. Guests and zone filter it instantly on the client.
+  // If an admin disables or changes a table while it is selected, never keep
+  // submitting the stale selection from an already-open booking dialog.
+  useEffect(() => {
+    setSelectedTable((current) => current
+      ? tables.find((t) => t.id === current.id && t.capacity >= partySize && t.sheet_registered !== false) ?? null
+      : null);
+  }, [tables, partySize]);
+
+  // The admin's active catalog and the sheet's live occupancy feed both this
+  // count and the map, so disabling/adding a table updates both consistently.
   const freeCount = useMemo(
-    () => (gasTablesQ.data ? countFreeTables(gasTablesQ.data.tables ?? [], { zone: zoneFilter, people: partySize }) : null),
-    [gasTablesQ.data, zoneFilter, partySize],
+    () => (gasSupported ? countFreeTables(liveTableRows, { zone: zoneFilter, people: partySize }) : null),
+    [gasSupported, liveTableRows, zoneFilter, partySize],
   );
   const freeHint = slot && date
     ? [
@@ -318,7 +334,7 @@ function BookingSection() {
       <div className="w-full" aria-live="polite">
         {!date || !slot ? (
           <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableSlot")} message={t("pickDateTimeForTables")} tone="muted" />
-        ) : gasTablesQ.isError ? (
+        ) : gasTablesQ.isError || tablesQ.isError ? (
           <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableSlot")} message={t("tablesCheckFailed")} tone="muted" hint={freeHint} />
         ) : !freeCount ? (
           <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableSlot")} message={t("checkingTables")} tone="muted" hint={freeHint} />
@@ -463,11 +479,15 @@ function BookingSection() {
           <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
             {filteredTables.map((tbl) => {
               const reserved = reservedTableIds.has(tbl.id);
+              const pendingSheet = tbl.sheet_registered === false;
               const selected = selectedTable?.id === tbl.id;
               return (
                 <button
                   key={tbl.id}
-                  disabled={reserved}
+                  disabled={reserved || pendingSheet}
+                  title={pendingSheet
+                    ? (lang === "th" ? "เพิ่มรหัสโต๊ะนี้ใน Data_Table ก่อนเปิดให้จอง" : "Add this table ID to Data_Table before opening it for booking")
+                    : undefined}
                   onClick={() => setSelectedTable(tbl)}
                   className={cn(
                     "group relative rounded-xl border-2 p-3 text-left transition-all duration-300",
@@ -476,6 +496,8 @@ function BookingSection() {
                       ? "bg-gold/25 border-gold shadow-gold scale-[1.06]"
                       : reserved
                       ? "bg-destructive/10 border-destructive/30 opacity-70"
+                      : pendingSheet
+                      ? "bg-muted/60 border-border text-muted-foreground opacity-75"
                       : "bg-success/8 border-success/30 hover:border-gold hover:bg-gold/10 hover:-translate-y-1 hover:shadow-gold",
                   )}
                 >
@@ -483,11 +505,11 @@ function BookingSection() {
                     <span className="font-display text-lg leading-none">{tbl.id}</span>
                     <span className={cn(
                       "h-2 w-2 rounded-full transition-transform group-hover:scale-150",
-                      selected ? "bg-gold" : reserved ? "bg-destructive" : "bg-success",
+                      selected ? "bg-gold" : reserved ? "bg-destructive" : pendingSheet ? "bg-muted-foreground" : "bg-success",
                     )} />
                   </div>
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
-                    {zoneLabel(tbl.zone, lang)}
+                    {pendingSheet ? (lang === "th" ? "รอเชื่อมชีต" : "Sheet setup needed") : zoneLabel(tbl.zone, lang)}
                   </div>
                   <div className="mt-1 flex items-center gap-1 text-[11px] text-foreground/70">
                     <Users className="h-3 w-3" /> {tbl.capacity}
