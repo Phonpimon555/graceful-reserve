@@ -77,6 +77,7 @@ function HomePage() {
 
 function Hero() {
   const { t, lang } = useLang();
+  const { data: info } = useRestaurantInfo();
   return (
     <section className="relative h-[60vh] min-h-[460px] w-full overflow-hidden flex items-center justify-center -mt-16 pt-16">
       {/* Background */}

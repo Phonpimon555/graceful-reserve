@@ -39,7 +39,7 @@ describe("malformed rows are flagged, not repaired", () => {
     expect(rows[3].channel).toBe("web");
     expect(rows[0].channel).toBe("line");
   });
-  test("start time is shown as the one-hour slot", () => expect(rows[3].time_slot).toBe("20:00-21:00"));
+  test("start time is shown as the 2-hour booking period", () => expect(rows[3].time_slot).toBe("20:00-22:00"));
 });
 
 describe("admin status rules", () => {

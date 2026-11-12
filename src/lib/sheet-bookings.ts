@@ -3,7 +3,7 @@
  * Pure helpers only — safe for both browser and server.
  * Nothing here changes sheet data: malformed rows are flagged, never repaired.
  */
-import { sheetSlot } from "@/lib/gasBooking";
+import { bookingRange } from "@/lib/booking-time";
 
 export type SheetStatus = "pending" | "confirmed" | "cancelled" | "completed" | "unknown";
 export type SheetZone = "Riverside" | "AirConditioned" | "VIP";
@@ -113,7 +113,7 @@ export function normalizeSheetBookings(raw: RawSheetBooking[]): SheetBooking[] {
 
     const date = validDate(fields.date_raw) ? fields.date_raw : null;
     if (!date) warnings.push("invalid_date");
-    const slot = sheetSlot(fields.time_raw);
+    const slot = bookingRange(fields.time_raw);
     const time_slot = /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(slot) ? slot : null;
     if (!time_slot) warnings.push("invalid_time");
     const n = typeof r.people === "number" ? r.people : Number(text(r.people));
