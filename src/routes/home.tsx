@@ -247,14 +247,18 @@ function BookingSection() {
     retry: false,
     refetchInterval: 30_000,
   });
-  const gasSupported = gasTablesQ.isSuccess;
+  const gasSupported = gasTablesQ.isSuccess && tablesQ.isSuccess;
+  const liveTableRows = useMemo(
+    () => mergeAdminTablesWithSheetStatus(tablesQ.data ?? [], gasTablesQ.data?.tables ?? []),
+    [tablesQ.data, gasTablesQ.data],
+  );
   const gasTableRows = useMemo<TableRow[]>(
-    () => (gasTablesQ.data?.tables ?? []).map((t: TableStatusRow) => ({
+    () => liveTableRows.map((t: TableStatusRow) => ({
       id: t.table_id,
       zone: zoneFromSheet(String(t.zone)) as Zone,
       capacity: Number(t.capacity) || 0,
     }) as unknown as TableRow),
-    [gasTablesQ.data],
+    [liveTableRows],
   );
 
   useEffect(() => {
