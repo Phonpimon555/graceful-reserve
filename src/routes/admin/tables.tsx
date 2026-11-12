@@ -88,7 +88,7 @@ function AdminTablesPage() {
     refresh();
   };
 
-  const patchTable = async (id: string, patch: Partial<TableRow>) => {
+  const patchTable = async (id: string, patch: Partial<Pick<TableRow, "zone" | "capacity" | "status">>) => {
     const { error } = await supabase.from("tables").update(patch).eq("id", id);
     if (error) toast.error(error.message);
     else refresh();
