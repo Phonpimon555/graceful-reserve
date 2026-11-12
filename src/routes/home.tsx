@@ -28,7 +28,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import {
   bookingQuery, cancelBooking, checkAvailability, countFreeTables, createBooking, fetchHistory, fetchTablesStatusForPeriod,
-  safePeople, sheetDate, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
+  mergeAdminTablesWithSheetStatus, safePeople, sheetDate, sheetZone, zoneFromSheet,
+  type AvailabilityResult, type TableStatusRow,
 } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
 import { pick, useRestaurantInfo } from "@/lib/restaurant-info";
@@ -222,7 +223,11 @@ function BookingSection() {
 
   const dateKey = date ? format(date, "yyyy-MM-dd") : "";
 
-  const tablesQ = useQuery({ queryKey: ["activeTables"], queryFn: fetchActiveTables });
+  const tablesQ = useQuery({
+    queryKey: ["activeTables"],
+    queryFn: fetchActiveTables,
+    refetchInterval: 30_000,
+  });
   const resQ = useQuery({
     queryKey: ["reservations", dateKey],
     queryFn: () => fetchReservationsForDate(dateKey),
