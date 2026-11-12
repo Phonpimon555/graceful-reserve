@@ -31,6 +31,7 @@ import {
   safePeople, sheetDate, sheetZone, zoneFromSheet, type AvailabilityResult, type TableStatusRow,
 } from "@/lib/gasBooking";
 import { supabase } from "@/integrations/supabase/client";
+import { pick, useRestaurantInfo } from "@/lib/restaurant-info";
 
 import heroImg from "@/assets/hero-riverside.jpg";
 import dishSeabass from "@/assets/dish-seabass.jpg";
@@ -146,7 +147,7 @@ function Hero() {
         {/* Highlights row */}
         <div className="mt-7 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           {[
-            { icon: Utensils, label: t("hl50Tables") },
+            { icon: Utensils, label: info?.total_tables ? `${info.total_tables} ${lang === "th" ? "โต๊ะ" : "Tables"}` : t("hl50Tables") },
             { icon: Waves, label: t("hlRiverside") },
             { icon: Crown, label: t("hlVip") },
             { icon: Clock, label: t("hlOpenDaily") },
@@ -167,13 +168,20 @@ function Hero() {
 
 /* ============================= INFO BAR ============================= */
 
+function hoursText(info: { open_time: string | null; close_time: string | null } | null | undefined, lang: string, fallback: string) {
+  const o = info?.open_time?.trim(), c = info?.close_time?.trim();
+  if (!o || !c) return fallback;
+  return `${o}–${c}${lang === "th" ? " น." : ""}`;
+}
+
 function InfoBar() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const { data: info } = useRestaurantInfo();
   const items = [
-    { icon: Clock, label: t("infoHours"), value: t("infoHoursValue") },
-    { icon: Phone, label: t("infoPhone"), value: t("infoPhoneValue") },
-    { icon: Utensils, label: t("infoTables"), value: t("infoTablesValue") },
-    { icon: Users, label: t("infoSeating"), value: t("infoSeatingValue") },
+    { icon: Clock, label: t("infoHours"), value: hoursText(info, lang, t("infoHoursValue")) },
+    { icon: Phone, label: t("infoPhone"), value: info?.phone?.trim() || t("infoPhoneValue") },
+    { icon: Utensils, label: t("infoTables"), value: info?.total_tables ? `${info.total_tables} ${lang === "th" ? "โต๊ะ" : "Tables"}` : t("infoTablesValue") },
+    { icon: Users, label: t("infoSeating"), value: pick(info?.seating_info_th, info?.seating_info_en, lang, t("infoSeatingValue")) },
   ];
   return (
     <section id="info" className="mx-auto max-w-6xl px-4 sm:px-6 pt-10 sm:pt-14">
@@ -660,6 +668,7 @@ function GallerySection() {
 
 function Footer() {
   const { t, lang } = useLang();
+  const { data: info } = useRestaurantInfo();
   return (
     <footer className="bg-primary text-primary-foreground">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 py-16">
@@ -670,14 +679,14 @@ function Footer() {
                 ค
               </div>
               <div>
-                <div className="font-display text-2xl">{t("brand")}</div>
+                <div className="font-display text-2xl">{pick(info?.name_th, info?.name_en, lang, t("brand"))}</div>
                 <div className="text-[10px] uppercase tracking-[0.2em] text-primary-foreground/60">{t("tagline")}</div>
               </div>
             </div>
             <p className="text-sm text-primary-foreground/70 leading-relaxed max-w-xs">
-              {lang === "th"
+              {pick(info?.description_th, info?.description_en, lang, lang === "th"
                 ? "ร้านอาหารไทยริมบึง บรรยากาศโรแมนติก พร้อมเสิร์ฟอาหารรสเลิศจากวัตถุดิบสดใหม่"
-                : "Lakeside Thai dining with a romantic ambience and exquisite dishes from the freshest ingredients."}
+                : "Lakeside Thai dining with a romantic ambience and exquisite dishes from the freshest ingredients.")}
             </p>
           </div>
 
@@ -686,11 +695,11 @@ function Footer() {
             <ul className="space-y-2.5 text-sm text-primary-foreground/80">
               <li className="flex items-start gap-2">
                 <Clock className="h-4 w-4 mt-0.5 text-gold shrink-0" />
-                <span>{t("infoHoursValue")}</span>
+                <span>{hoursText(info, lang, t("infoHoursValue"))}</span>
               </li>
               <li className="flex items-start gap-2">
                 <Phone className="h-4 w-4 mt-0.5 text-gold shrink-0" />
-                <span>{t("infoPhoneValue")}</span>
+                <span>{info?.phone?.trim() || t("infoPhoneValue")}</span>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 mt-0.5 text-gold shrink-0" />
