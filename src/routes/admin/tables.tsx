@@ -57,18 +57,22 @@ function AdminTablesPage() {
   const [busy, setBusy] = useState(false);
   const [toDelete, setToDelete] = useState<TableRow | null>(null);
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["tables"] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["tables"] });
+    qc.invalidateQueries({ queryKey: ["activeTables"] });
+  };
 
   const addTable = async () => {
     const num = Number(newTable.table_number);
-    if (!num || num < 1) {
-      toast.error(lang === "th" ? "กรุณากรอกหมายเลขโต๊ะ" : "Please enter a table number");
+    if (!Number.isInteger(num) || num < 1) {
+      toast.error(lang === "th" ? "กรุณากรอกหมายเลขโต๊ะเป็นจำนวนเต็ม" : "Please enter a whole table number");
       return;
     }
     const prefix = newTable.zone === "VIP" ? "V" : newTable.zone === "Riverside" ? "R" : "G";
+    const id = `${prefix}${String(num).padStart(2, "0")}`;
     setBusy(true);
     const { error } = await supabase.from("tables").insert({
-      id: `${prefix}${num}`,
+      id,
       table_number: num,
       zone: newTable.zone,
       capacity: newTable.capacity,

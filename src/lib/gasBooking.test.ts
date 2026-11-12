@@ -1,6 +1,6 @@
 /// <reference types="bun" />
 import { describe, expect, it } from "bun:test";
-import { countFreeTables, sheetSlot, type TableStatusRow } from "./gasBooking";
+import { countFreeTables, mergeAdminTablesWithSheetStatus, sheetSlot, type TableStatusRow } from "./gasBooking";
 
 describe("sheetSlot", () => {
   it("reads a start time saved by the booking sheet as the one-hour slot", () => {
