@@ -81,7 +81,15 @@ export type BookingResult = {
   people?: number; booking_status?: string; date?: string; time?: string; message?: string;
 };
 
-export type TableStatusRow = { table_id: string; zone: string; capacity: number; status?: string; occupied: boolean };
+export type TableStatusRow = {
+  table_id: string;
+  zone: string;
+  capacity: number;
+  status?: string;
+  occupied: boolean;
+  /** False for an admin-only row until the same ID is registered in Data_Table. */
+  sheet_registered?: boolean;
+};
 
 export type TablesStatusResult = { tables: TableStatusRow[] };
 
@@ -96,7 +104,8 @@ export type AdminTableCatalogRow = {
  * The admin catalog controls which tables exist and whether they are active.
  * Sheets remains the source of occupancy for the selected date/time. Rows that
  * only exist in Sheets are not re-added after an admin removed them from the
- * catalog; admin-only rows start unoccupied because Sheets has no booking for them.
+ * catalog. Admin-only rows appear immediately but cannot be booked or counted
+ * as free until the same ID is registered in Data_Table.
  */
 export function mergeAdminTablesWithSheetStatus(
   adminRows: AdminTableCatalogRow[],
@@ -124,6 +133,7 @@ export function mergeAdminTablesWithSheetStatus(
       capacity: Number(row.capacity) || 0,
       status: sheet?.status,
       occupied: Boolean(sheet?.occupied),
+      sheet_registered: Boolean(sheet),
     }];
   });
 }
@@ -139,7 +149,10 @@ export function countFreeTables(rows: TableStatusRow[], f: { zone: string; peopl
     String(t.table_id ?? "").trim() !== "" &&
     (f.zone === "all" || zoneFromSheet(String(t.zone ?? "")) === f.zone) &&
     Number(t.capacity) >= f.people);
-  return { free: match.filter((t) => !t.occupied).length, total: match.length };
+  return {
+    free: match.filter((t) => !t.occupied && t.sheet_registered !== false).length,
+    total: match.length,
+  };
 }
 
 /** Per-table occupancy for a date/time (and optional zone), read live from the sheet via GET. */

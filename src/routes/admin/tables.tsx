@@ -126,6 +126,11 @@ function AdminTablesPage() {
           <h2 className="font-display text-xl text-primary mb-4">
             {lang === "th" ? "เพิ่มโต๊ะใหม่" : "Add a table"}
           </h2>
+          <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+            {lang === "th"
+              ? "โต๊ะใหม่จะแสดงและนับรวมบนหน้าเว็บทันที แต่ต้องเพิ่มรหัสเดียวกันใน Data_Table ก่อนจึงจะเปิดให้จองและนับเป็นโต๊ะว่าง"
+              : "New tables appear in the total immediately, but the same ID must be added to Data_Table before they can be booked or counted as free."}
+          </p>
           <div className="grid gap-3 sm:grid-cols-4">
             <div className="space-y-2">
               <Label>{lang === "th" ? "หมายเลขโต๊ะ" : "Table number"}</Label>

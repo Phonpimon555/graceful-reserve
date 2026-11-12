@@ -257,6 +257,7 @@ function BookingSection() {
       id: t.table_id,
       zone: zoneFromSheet(String(t.zone)) as Zone,
       capacity: Number(t.capacity) || 0,
+      sheet_registered: t.sheet_registered,
     }) as unknown as TableRow),
     [liveTableRows],
   );

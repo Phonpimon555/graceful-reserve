@@ -49,8 +49,17 @@ describe("admin table catalog with live sheet occupancy", () => {
       [tbl("R01", "ริมบึง", 4)],
     );
     expect(merged).toHaveLength(2);
-    expect(merged[1]).toMatchObject({ table_id: "V11", zone: "VIP", occupied: false });
-    expect(countFreeTables(merged, { zone: "VIP", people: 2 })).toEqual({ free: 1, total: 1 });
+    expect(merged[1]).toMatchObject({ table_id: "V11", zone: "VIP", occupied: false, sheet_registered: false });
+    expect(countFreeTables(merged, { zone: "VIP", people: 2 })).toEqual({ free: 0, total: 1 });
+    expect(countFreeTables(merged, { zone: "all", people: 2 })).toEqual({ free: 1, total: 2 });
+  });
+
+  it("counts an added table as free only after Data_Table registers the same ID", () => {
+    const merged = mergeAdminTablesWithSheetStatus(
+      [adminRow("R01"), adminRow("V11", "VIP")],
+      [tbl("R01", "ริมบึง", 4), tbl("V11", "VIP", 8)],
+    );
+    expect(merged[1].sheet_registered).toBe(true);
     expect(countFreeTables(merged, { zone: "all", people: 2 })).toEqual({ free: 2, total: 2 });
   });
 
