@@ -287,12 +287,10 @@ function BookingSection() {
   const reservedTableIds = useMemo(() => {
     if (!slot) return new Set<string>();
     if (gasSupported) {
-      return new Set(
-        (gasTablesQ.data?.tables ?? []).filter((t) => t.occupied).map((t) => t.table_id),
-      );
+      return new Set(liveTableRows.filter((t) => t.occupied).map((t) => t.table_id));
     }
     return new Set(reservations.filter((r) => bookingsOverlap(r.time_slot, slot)).map((r) => r.table_id));
-  }, [reservations, slot, gasSupported, gasTablesQ.data]);
+  }, [reservations, slot, gasSupported, liveTableRows]);
 
   const filteredTables = useMemo(
     () => tables
@@ -301,11 +299,11 @@ function BookingSection() {
     [tables, zoneFilter, partySize],
   );
 
-  // Free tables for the selected date + 2-hour period, from the same live `tables`
-  // reply that colours the map. Guests and zone filter it instantly on the client.
+  // The admin's active catalog and the sheet's live occupancy feed both this
+  // count and the map, so disabling/adding a table updates both consistently.
   const freeCount = useMemo(
-    () => (gasTablesQ.data ? countFreeTables(gasTablesQ.data.tables ?? [], { zone: zoneFilter, people: partySize }) : null),
-    [gasTablesQ.data, zoneFilter, partySize],
+    () => (gasSupported ? countFreeTables(liveTableRows, { zone: zoneFilter, people: partySize }) : null),
+    [gasSupported, liveTableRows, zoneFilter, partySize],
   );
   const freeHint = slot && date
     ? [
@@ -327,7 +325,7 @@ function BookingSection() {
       <div className="w-full" aria-live="polite">
         {!date || !slot ? (
           <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableSlot")} message={t("pickDateTimeForTables")} tone="muted" />
-        ) : gasTablesQ.isError ? (
+        ) : gasTablesQ.isError || tablesQ.isError ? (
           <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableSlot")} message={t("tablesCheckFailed")} tone="muted" hint={freeHint} />
         ) : !freeCount ? (
           <Stat icon={<Sparkles className="h-4 w-4" />} label={t("dashAvailableSlot")} message={t("checkingTables")} tone="muted" hint={freeHint} />
